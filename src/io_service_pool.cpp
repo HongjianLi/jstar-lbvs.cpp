@@ -1,10 +1,10 @@
 #include "io_service_pool.hpp"
 
-io_service_pool::io_service_pool(const size_t concurrency) :
+io_service_pool::io_service_pool(const size_t num_threads) :
 	w(make_unique<work>(*this))
 {
-	reserve(concurrency);
-	for (size_t i = 0; i < concurrency; ++i)
+	reserve(num_threads);
+	for (size_t i = 0; i < num_threads; ++i)
 	{
 		emplace_back(async(launch::async, [&]()
 		{
