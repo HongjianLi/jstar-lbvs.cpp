@@ -71,7 +71,7 @@ array<Point3D, 4> calcRefPoints(const ROMol& mol, const vector<int>& heavyAtoms)
 		const auto& a = conf.getAtomPos(i);
 		ctd += a;
 	}
-	ctd /= num_points;
+	ctd /= static_cast<double>(num_points);
 	auto cst_dist = numeric_limits<double>::max();
 	auto fct_dist = numeric_limits<double>::lowest();
 	auto ftf_dist = numeric_limits<double>::lowest();
@@ -160,29 +160,27 @@ int main(int argc, char* argv[])
 	const string collName = "Selleckchem";
 	const path collPath = dbPath / collName;
 	cout << local_time() << "Reading " << collName << endl;
-//	const auto id_u32 = read<uint32_t>(collPath / "id.u32");
 	const auto id_str = readLines(collPath / "id.txt");
-//	const auto num_compounds = id_u32.size();
 	const auto num_compounds = id_str.size();
 	cout << local_time() << "Found " << num_compounds << " compounds from " << collName << endl;
 
 /*	// Read property files.
-	const auto numAtoms_u16 = read<uint16_t>(collPath / "numAtoms.u16");
-	assert(numAtoms_u16.size() == num_compounds);
-	const auto numHBD_u16 = read<uint16_t>(collPath / "numHBD.u16");
-	assert(numHBD_u16.size() == num_compounds);
-	const auto numHBA_u16 = read<uint16_t>(collPath / "numHBA.u16");
-	assert(numHBA_u16.size() == num_compounds);
-	const auto numRotatableBonds_u16 = read<uint16_t>(collPath / "numRotatableBonds.u16");
-	assert(numRotatableBonds_u16.size() == num_compounds);
-	const auto numRings_u16 = read<uint16_t>(collPath / "numRings.u16");
-	assert(numRings_u16.size() == num_compounds);
-	const auto exactMW_f32 = read<float>(collPath / "exactMW.f32");
-	assert(exactMW_f32.size() == num_compounds);
-	const auto tPSA_f32 = read<float>(collPath / "tPSA.f32");
-	assert(tPSA_f32.size() == num_compounds);
-	const auto clogP_f32 = read<float>(collPath / "clogP.f32");
-	assert(clogP_f32.size() == num_compounds);*/
+	const auto natm_u16 = read<uint16_t>(collPath / "natm.u16");
+	assert(natm_u16.size() == num_compounds);
+	const auto nhbd_u16 = read<uint16_t>(collPath / "nhbd.u16");
+	assert(nhbd_u16.size() == num_compounds);
+	const auto nhba_u16 = read<uint16_t>(collPath / "nhba.u16");
+	assert(nhba_u16.size() == num_compounds);
+	const auto nrtb_u16 = read<uint16_t>(collPath / "nrtb.u16");
+	assert(nrtb_u16.size() == num_compounds);
+	const auto nrng_u16 = read<uint16_t>(collPath / "nrng.u16");
+	assert(nrng_u16.size() == num_compounds);
+	const auto xmwt_f32 = read<float>(collPath / "xmwt.f32");
+	assert(xmwt_f32.size() == num_compounds);
+	const auto tpsa_f32 = read<float>(collPath / "tpsa.f32");
+	assert(tpsa_f32.size() == num_compounds);
+	const auto clgp_f32 = read<float>(collPath / "clgp.f32");
+	assert(clgp_f32.size() == num_compounds);*/
 
 	// Read usrcat feature file.
 	const auto usrcat_f32 = read<array<float, qn.back()>>(collPath / "usrcat.f32");
@@ -441,7 +439,7 @@ int main(int argc, char* argv[])
 			SDWriter hits_sdf((output_dir / "hits.sdf").string());
 			ofstream hits_csv(output_dir / "hits.csv");
 			hits_csv.setf(ios::fixed, ios::floatfield);
-			hits_csv << setprecision(8) << "ID,USR score,USRCAT score,2D Tanimoto score,canonicalSMILES,molFormula,numAtoms,numHBD,numHBA,numRotatableBonds,numRings,exactMW,tPSA,clogP\n";
+			hits_csv << setprecision(8) << "ID,USR score,USRCAT score,2D Tanimoto score,canonicalSMILES,molFormula,natm,nhbd,nhba,nrtb,nrng,xmwt,tpsa,clgp\n";
 			for (size_t l = 0; l < num_hits; ++l)
 			{
 				// Obtain indexes to the hit compound and the hit conformer.
@@ -510,10 +508,8 @@ int main(int argc, char* argv[])
 				const auto u1score = 1 / (1 + s         * qv[usr1]); // Secondary score of the current compound.
 				const auto id = id_str[k];
 				vector<string> descs;
-				split(descs, descriptors[k], boost::is_any_of("	")); // Split the descriptor line into columns, which are [ID	canonicalSMILES	molFormula	numAtoms	numHBD	numHBA	numRotatableBonds	numRings	exactMW	tPSA	clogP	subset]
+				split(descs, descriptors[k], boost::is_any_of("	")); // Split the descriptor line into columns, which are [ID	canonicalSMILES	molFormula	natm	nhbd	nhba	nrtb	nrng	xmwt	tpsa	clgp	subset]
 				hits_csv
-//					<< boost::format("%08d") % id // SCUBIDOO
-//					<< boost::format("S%d") % id // Selleckchem
 					<< id
 //					<< ',' << descs[1]
 //					<< ',' << collName
