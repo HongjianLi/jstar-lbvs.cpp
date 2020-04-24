@@ -7,7 +7,7 @@
 using namespace std;
 using namespace boost::asio;
 
-//! Represents a pool of threads concurrently an instance of io service.
+//! Represents a pool of concurrently running threads as an instance of io service.
 class io_service_pool : public io_service, public vector<future<void>>
 {
 public:
