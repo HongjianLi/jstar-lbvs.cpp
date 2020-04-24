@@ -56,6 +56,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="src\compound_database.hpp" />
     <ClInclude Include="src\vector_reader.hpp" />
     <ClInclude Include="src\safe_counter.hpp" />
     <ClInclude Include="src\io_service_pool.hpp" />
