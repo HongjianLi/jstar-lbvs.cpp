@@ -26,8 +26,9 @@
 #include <mongocxx/client.hpp>
 #include <bsoncxx/json.hpp>
 #include "io_service_pool.hpp"
-#include "vector_reader.hpp"
 #include "safe_counter.hpp"
+#include "compound_database.hpp"
+#include "vector_reader.hpp"
 using namespace std;
 using namespace std::chrono;
 using namespace std::filesystem;
@@ -106,9 +107,9 @@ array<Point3D, 4> calcRefPoints(const ROMol& mol, const vector<int>& heavyAtoms)
 int main(int argc, char* argv[])
 {
 	// Check the required number of command line arguments.
-	if (argc != 6)
+	if (argc != 7)
 	{
-		cout << "lbvs host port user pwd jobs_path" << endl;
+		cout << "lbvs host port user pwd dbs_path jobs_path" << endl;
 		return 0;
 	}
 
@@ -117,18 +118,8 @@ int main(int argc, char* argv[])
 	const auto port = argv[2];
 	const auto user = argv[3];
 	const auto pwd = argv[4];
-	const path jobs_path = argv[5];
-
-	// Connect to host and authenticate user.
-	cout << local_time() << "Connecting to " << host << ':' << port << " and authenticating " << user << endl;
-	const instance inst; // The constructor and destructor initialize and shut down the driver. http://mongocxx.org/api/current/classmongocxx_1_1instance.html
-	const uri uri("mongodb://localhost:27017/?minPoolSize=0&maxPoolSize=2"); // When connecting to a replica set, it is much more efficient to use a pool as opposed to manually constructing client objects.
-	pool pool(uri);
-	const auto client = pool.acquire(); // Return value of acquire() is an instance of entry. An entry is a handle on a client object acquired via the pool.
-	const auto db = client->database("jstar");
-	auto coll = db.collection("usr2");
-	const auto jobid_filter = bsoncxx::from_json(R"({ "started" : { "$exists" : false }})");
-	const auto jobid_foau_options = options::find_one_and_update().sort(bsoncxx::from_json(R"({ "submitted" : 1 })")).projection(bsoncxx::from_json(R"({ "_id" : 1, "usr": 1 })")); // By default, the original document is returned
+	const path dbs_path = argv[5];
+	const path jobs_path = argv[6];
 
 	// Initialize constants.
 	cout << local_time() << "Initializing" << endl;
@@ -155,72 +146,82 @@ int main(int argc, char* argv[])
 		SubsetMols[k].reset(reinterpret_cast<ROMol*>(SmartsToMol(SubsetSMARTS[k])));
 	}
 
-	// Read id file.
-	const path dbPath = "databases";
-	const string collName = "Selleckchem";
-	const path collPath = dbPath / collName;
-	cout << local_time() << "Reading " << collName << endl;
-	const auto id_str = readLines(collPath / "id.txt");
-	const auto num_compounds = id_str.size();
-	cout << local_time() << "Found " << num_compounds << " compounds from " << collName << endl;
+	// Read compound database directory.
+	vector<compound_database> databases;
+	cout << dbs_path << endl;
+	for (directory_iterator dbs_dir_iter(dbs_path), end_dir_iter; dbs_dir_iter != end_dir_iter; ++dbs_dir_iter)
+	{
+		// Create a database instance.
+		databases.emplace_back();
+		auto& cpdb = databases.back();
 
-/*	// Read property files.
-	const auto natm_u16 = read<uint16_t>(collPath / "natm.u16");
-	assert(natm_u16.size() == num_compounds);
-	const auto nhbd_u16 = read<uint16_t>(collPath / "nhbd.u16");
-	assert(nhbd_u16.size() == num_compounds);
-	const auto nhba_u16 = read<uint16_t>(collPath / "nhba.u16");
-	assert(nhba_u16.size() == num_compounds);
-	const auto nrtb_u16 = read<uint16_t>(collPath / "nrtb.u16");
-	assert(nrtb_u16.size() == num_compounds);
-	const auto nrng_u16 = read<uint16_t>(collPath / "nrng.u16");
-	assert(nrng_u16.size() == num_compounds);
-	const auto xmwt_f32 = read<float>(collPath / "xmwt.f32");
-	assert(xmwt_f32.size() == num_compounds);
-	const auto tpsa_f32 = read<float>(collPath / "tpsa.f32");
-	assert(tpsa_f32.size() == num_compounds);
-	const auto clgp_f32 = read<float>(collPath / "clgp.f32");
-	assert(clgp_f32.size() == num_compounds);*/
+		// Assign database path and name.
+		cpdb.path = dbs_dir_iter->path();
+		cpdb.name = cpdb.path.filename().string();
 
-	// Read usrcat feature file.
-	const auto usrcat_f32 = read<array<float, qn.back()>>(collPath / "usrcat.f32");
-	const auto num_conformers = usrcat_f32.size();
-	cout << local_time() << "Found " << num_conformers << " conformers from " << collName << endl;
-	assert(num_conformers == num_compounds << 2);
+		// Read id file.
+		cout << local_time() << "Reading " << cpdb.name << endl;
+		read_lines(cpdb.path / "id.txt", cpdb.cpid);
+		cpdb.num_compounds = cpdb.cpid.size();
+		cout << local_time() << "Found " << cpdb.num_compounds << " compounds" << endl;
 
-	// Read ligand footer file and open ligand SDF file for seeking and reading.
-	stream_vector<size_t> descriptors(collPath / "descriptors.tsv");
-	assert(descriptors.size() == num_compounds);
-	stream_vector<size_t> conformers(collPath / "conformers.sdf");
-	assert(conformers.size() == num_conformers);
+		// Read molecular descriptor files.
+		read_types<uint16_t>(cpdb.path / "natm.u16", cpdb.natm);
+		assert(cpdb.natm.size() == cpdb.num_compounds);
+		read_types<uint16_t>(cpdb.path / "nhbd.u16", cpdb.nhbd);
+		assert(cpdb.nhbd.size() == cpdb.num_compounds);
+		read_types<uint16_t>(cpdb.path / "nhba.u16", cpdb.nhba);
+		assert(cpdb.nhba.size() == cpdb.num_compounds);
+		read_types<uint16_t>(cpdb.path / "nrtb.u16", cpdb.nrtb);
+		assert(cpdb.nrtb.size() == cpdb.num_compounds);
+		read_types<uint16_t>(cpdb.path / "nrng.u16", cpdb.nrng);
+		assert(cpdb.nrng.size() == cpdb.num_compounds);
+		read_types<float>(cpdb.path / "xmwt.f32", cpdb.xmwt);
+		assert(cpdb.xmwt.size() == cpdb.num_compounds);
+		read_types<float>(cpdb.path / "tpsa.f32", cpdb.tpsa);
+		assert(cpdb.tpsa.size() == cpdb.num_compounds);
+		read_types<float>(cpdb.path / "clgp.f32", cpdb.clgp);
+		assert(cpdb.clgp.size() == cpdb.num_compounds);
+
+		// Read usrcat feature file.
+		read_types<array<float, 60>>(cpdb.path / "usrcat.f32", cpdb.usrcat);
+		cpdb.num_conformers = cpdb.usrcat.size();
+		cout << local_time() << "Found " << cpdb.num_conformers << " conformers" << endl;
+		assert(cpdb.num_conformers == cpdb.num_compounds << 2);
+
+		// Read conformers footer file.
+		read_types<size_t>(cpdb.path / "conformers.sdf.ftr", cpdb.conformers_ftr);
+		assert(cpdb.conformers_ftr.size() == cpdb.num_conformers);
+//		stream_vector<size_t> descriptors(cpdb.path / "descriptors.tsv");
+//		assert(descriptors.size() == num_compounds);
+	}
+	string db_op_in_array;
+	for (size_t i = 0; i < databases.size(); ++i)
+	{
+		db_op_in_array += (i ? ",\"" : "\"") + databases[i].name + "\"";
+	}
+
+	// Connect to mongodb and authenticate user.
+	cout << local_time() << "Connecting to " << host << ':' << port << " and authenticating " << user << endl;
+	const instance inst; // The constructor and destructor initialize and shut down the driver. http://mongocxx.org/api/current/classmongocxx_1_1instance.html
+	const uri uri("mongodb://localhost:27017/?minPoolSize=0&maxPoolSize=2"); // When connecting to a replica set, it is much more efficient to use a pool as opposed to manually constructing client objects.
+	pool pool(uri);
+	const auto client = pool.acquire(); // Return value of acquire() is an instance of entry. An entry is a handle on a client object acquired via the pool.
+	auto coll = client->database("jstar").collection("lbvs");
+	const auto jobid_filter = bsoncxx::from_json(R"({ "startDate" : { "$exists" : false }, "database": { "$in": [)" + db_op_in_array + R"(] }})");
+	const auto jobid_foau_options = options::find_one_and_update().sort(bsoncxx::from_json(R"({ "submitDate" : 1 })")).projection(bsoncxx::from_json(R"({ "_id" : 1, "database": 1, "score": 1 })")); // By default, the original document is returned
 
 	// Initialize variables.
 	array<vector<int>, num_subsets> subsets;
 	array<vector<double>, num_refPoints> dista;
-	alignas(32) array<double, qn.back()> q;
-
-	// Initialize vectors to store compounds' primary score and their corresponding conformer.
-	vector<double> scores(num_compounds); // Primary score of compounds.
-	vector<size_t> cnfids(num_compounds); // ID of conformer with the best primary score.
-	const auto compare = [&](const size_t val0, const size_t val1) // Sort by the primary score.
-	{
-		return scores[val0] < scores[val1];
-	};
+	alignas(32) array<double, 60> q;
 
 	// Initialize an io service pool and create worker threads for later use.
 	const size_t num_threads = thread::hardware_concurrency();
 	cout << local_time() << "Creating an io service pool of " << num_threads << " worker threads" << endl;
 	io_service_pool io(num_threads);
 	safe_counter<size_t> cnt;
-
-	// Initialize the number of chunks and the number of compounds per chunk. TODO: the choice of num_chunks depends on num_compounds.
 	const auto num_chunks = num_threads << 2;
-	const auto chunk_size = 1 + (num_compounds - 1) / num_chunks;
-	assert(chunk_size * num_chunks >= num_compounds);
-	assert(chunk_size >= num_hits);
-	cout << local_time() << "Using " << num_chunks << " chunks and a chunk size of " << chunk_size << endl;
-	vector<size_t> scase(num_compounds);
-	vector<size_t> zcase(num_hits * (num_chunks - 1) + min(num_hits, num_compounds - chunk_size * (num_chunks - 1))); // The last chunk might have fewer than num_hits records.
 
 	// Enter event loop.
 	cout << local_time() << "Entering event loop" << endl;
@@ -230,13 +231,15 @@ int main(int argc, char* argv[])
 	{
 		// Fetch an incompleted job in a first-come-first-served manner.
 		if (!sleeping) cout << local_time() << "Fetching an incompleted job" << endl;
-		const auto started = system_clock::now();
+		const auto startDate = system_clock::now();
 		bsoncxx::builder::basic::document jobid_update_builder;
 		jobid_update_builder.append(
 			kvp("$set", [=](bsoncxx::builder::basic::sub_document set_subdoc) {
-				set_subdoc.append(kvp("started", bsoncxx::types::b_date(started)));
+				set_subdoc.append(kvp("startDate", bsoncxx::types::b_date(startDate)));
 			})
 		);
+
+		// http://mongocxx.org/api/current/classmongocxx_1_1collection.html#a6b04b5265e044c08d1ecd1e4185fb699
 		const auto jobid_document = coll.find_one_and_update(jobid_filter.view(), jobid_update_builder.extract(), jobid_foau_options);
 		if (!jobid_document)
 		{
@@ -253,15 +256,39 @@ int main(int argc, char* argv[])
 		const auto _id = jobid_view["_id"].get_oid().value;
 		cout << local_time() << "Executing job " << _id.to_string() << endl;
 		const auto job_path = jobs_path / _id.to_string();
-		const size_t usr0 = jobid_view["usr"].get_int32(); // Specify the primary sorting score. 0: USR; 1: USRCAT.
-		assert(usr0 == 0 || usr0 == 1);
+		const auto cpdb_name = jobid_view["database"].get_utf8().value; // get_utf8().value returns an instance of std::string_view.
+		const auto score = jobid_view["score"].get_utf8().value;
+		assert(score == "USR" || score == "USRCAT");
+		const size_t usr0 = score == "USRCAT"; // Specify the primary sorting score. 0: USR; 1: USRCAT.
 		const auto usr1 = usr0 ^ 1;
 		const auto qnu0 = qn[usr0];
 		const auto qnu1 = qn[usr1];
 
+		// Obtain a constant reference to the selected database.
+		size_t cpdb_index = 0;
+		while (databases[cpdb_index].name != cpdb_name) ++cpdb_index;
+		const auto& cpdb = databases[cpdb_index];
+
 		// Read the user-supplied SDF file.
 		cout << local_time() << "Reading the query file" << endl;
 		SDMolSupplier sup((job_path / "query.sdf").string(), true, false, true); // sanitize, removeHs, strictParsing. Note: setting removeHs=true (which is the default setting) will lead to fewer hydrogen bond acceptors being matched.
+
+		// Initialize vectors to store compounds' primary score and their corresponding conformer.
+		vector<double> scores(cpdb.num_compounds); // Primary score of compounds.
+		vector<size_t> cnfids(cpdb.num_compounds); // ID of conformer with the best primary score.
+		const auto compare = [&](const size_t val0, const size_t val1) // Sort by the primary score.
+		{
+			return scores[val0] < scores[val1];
+		};
+
+		// Initialize the number of chunks and the number of compounds per chunk.
+		const auto chunk_size = 1 + (cpdb.num_compounds - 1) / num_chunks;
+		assert(chunk_size * num_chunks >= cpdb.num_compounds);
+		assert(chunk_size >= num_hits);
+		cout << local_time() << "Using " << num_chunks << " chunks and a chunk size of " << chunk_size << endl;
+		vector<size_t> scase(cpdb.num_compounds);
+		vector<size_t> zcase(num_hits * (num_chunks - 1) + min(num_hits, cpdb.num_compounds - chunk_size * (num_chunks - 1))); // The last chunk might have fewer than num_hits records.
+		ifstream conformers_ifs(cpdb.path / "conformers.sdf");
 
 		// Process each of the query compounds sequentially.
 		const auto num_queries = 1; // Restrict the number of query compounds to 1. Setting num_queries = sup.length() to execute any number of query compounds.
@@ -387,7 +414,7 @@ int main(int argc, char* argv[])
 			assert(qo == qn.back());
 
 			// Compute USR and USRCAT scores.
-			cout << local_time() << "Calculating " << num_compounds << " " << usr_names[usr0] << " scores" << endl;
+			cout << local_time() << "Calculating " << cpdb.num_compounds << " " << usr_names[usr0] << " scores" << endl;
 			scores.assign(scores.size(), numeric_limits<double>::max());
 			iota(scase.begin(), scase.end(), 0);
 			cnt.init(num_chunks);
@@ -397,14 +424,14 @@ int main(int argc, char* argv[])
 				{
 					// Loop over compounds of the current chunk.
 					const auto chunk_beg = chunk_size * l;
-					const auto chunk_end = min(chunk_beg + chunk_size, num_compounds);
+					const auto chunk_end = min(chunk_beg + chunk_size, cpdb.num_compounds);
 					for (size_t k = chunk_beg; k < chunk_end; ++k)
 					{
 						// Loop over conformers of the current compound and calculate their primary score.
 						auto& scorek = scores[k];
 						for (size_t j = k << 2; j < (k + 1) << 2; ++j)
 						{
-							const auto& d = usrcat_f32[j];
+							const auto& d = cpdb.usrcat[j];
 							double s = 0;
 							for (size_t i = 0; i < qnu0; ++i)
 							{
@@ -447,7 +474,7 @@ int main(int argc, char* argv[])
 				const auto j = cnfids[k];
 
 				// Read SDF content of the hit conformer.
-				const auto hitSdf = conformers[j];
+				const auto hitSdf = read_string(cpdb.conformers_ftr, j, conformers_ifs);
 
 				// Construct a RDKit ROMol object.
 				istringstream iss(hitSdf);
@@ -497,7 +524,7 @@ int main(int argc, char* argv[])
 				hits_sdf.write(hitMol);
 
 				// Calculate the secondary score of the saved conformer, which has the best primary score.
-				const auto& d = usrcat_f32[j];
+				const auto& d = cpdb.usrcat[j];
 				double s = 0;
 				for (size_t i = 0; i < qnu1; ++i)
 				{
@@ -506,51 +533,49 @@ int main(int argc, char* argv[])
 
 				const auto u0score = 1 / (1 + scores[k] * qv[usr0]); // Primary score of the current compound.
 				const auto u1score = 1 / (1 + s         * qv[usr1]); // Secondary score of the current compound.
-				const auto id = id_str[k];
-				vector<string> descs;
-				split(descs, descriptors[k], boost::is_any_of("	")); // Split the descriptor line into columns, which are [ID	canonicalSMILES	molFormula	natm	nhbd	nhba	nrtb	nrng	xmwt	tpsa	clgp	subset]
+//				vector<string> descs;
+//				split(descs, descriptors[k], boost::is_any_of("	")); // Split the descriptor line into columns, which are [ID	canonicalSMILES	molFormula	natm	nhbd	nhba	nrtb	nrng	xmwt	tpsa	clgp	subset]
 				hits_csv
-					<< id
+					<< cpdb.cpid[k]
 //					<< ',' << descs[1]
-//					<< ',' << collName
+//					<< ',' << cpdb.name
 					<< ',' << (usr1 ? u0score : u1score)
 					<< ',' << (usr1 ? u1score : u0score)
 					<< ',' << ts
 //					<< ',' // subset
-					<< ',' << descs[1]
-					<< ',' << descs[2]
-					<< ',' << descs[3]
-					<< ',' << descs[4]
-					<< ',' << descs[5]
-					<< ',' << descs[6]
-					<< ',' << descs[7]
-					<< ',' << descs[8]
-					<< ',' << descs[9]
-					<< ',' << descs[10]
+					<< ',' << cpdb.natm[k]
+					<< ',' << cpdb.nhbd[k]
+					<< ',' << cpdb.nhba[k]
+					<< ',' << cpdb.nrtb[k]
+					<< ',' << cpdb.nrng[k]
+					<< ',' << cpdb.xmwt[k]
+					<< ',' << cpdb.tpsa[k]
+					<< ',' << cpdb.clgp[k]
 					<< '\n'
 				;
 			}
 		}
 
 		// Update job status.
-		cout << local_time() << "Setting completed time" << endl;
-		const auto completed = system_clock::now();
+		cout << local_time() << "Setting end time" << endl;
+		const auto endDate = system_clock::now();
 		bsoncxx::builder::basic::document compt_update_builder;
 		compt_update_builder.append(
 			kvp("$set", [=](bsoncxx::builder::basic::sub_document set_subdoc) {
-				set_subdoc.append(kvp("completed", bsoncxx::types::b_date(completed)));
-				set_subdoc.append(kvp("nqueries", num_queries));
-				set_subdoc.append(kvp("numConformers", static_cast<int64_t>(num_conformers)));
+				set_subdoc.append(kvp("endDate", bsoncxx::types::b_date(endDate)));
+				set_subdoc.append(kvp("numQueries", num_queries));
+				set_subdoc.append(kvp("numConformers", static_cast<int64_t>(cpdb.num_conformers)));
 			})
 		);
+		// http://mongocxx.org/api/current/classmongocxx_1_1collection.html#aece5216e5ae6fc3316c9da604f3b28f9
 		const auto compt_update = coll.update_one(bsoncxx::builder::basic::make_document(kvp("_id", _id)), compt_update_builder.extract(), options::update()); // stdx::optional<result::update>. options: write_concern
 		assert(compt_update);
 		assert(compt_update->matched_count() == 1);
 		assert(compt_update->modified_count() == 1);
 
 		// Calculate runtime in seconds and screening speed in million conformers per second.
-		const auto runtime = (completed - started).count() * 1e-9; // in seconds
-		const auto speed = num_conformers * 1e-6 * num_queries / runtime;
+		const auto runtime = (endDate - startDate).count() * 1e-9; // in seconds
+		const auto speed = cpdb.num_conformers * 1e-6 * num_queries / runtime;
 		cout
 			<< local_time() << "Completed " << num_queries << " " << (num_queries == 1 ? "query" : "queries") << " in " << setprecision(3) << runtime << " seconds" << endl
 			<< local_time() << "Screening speed was " << setprecision(0) << speed << " M conformers per second" << endl
