@@ -13,7 +13,7 @@ class compound_database
 {
 public:
 	string name; //!< Database name.
-	path path; //!< Database path.
+	path dpth; //!< Path to the database directory.
 	size_t num_compounds; //!< Number of compound.
 	size_t num_conformers; //!< Number of 3D conformers. Usually num_conformers == num_compounds < 2
 	vector<string> cpid; //!< Compound identifies.

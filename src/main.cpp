@@ -156,43 +156,43 @@ int main(int argc, char* argv[])
 		auto& cpdb = databases.back();
 
 		// Assign database path and name.
-		cpdb.path = dbs_dir_iter->path();
-		cpdb.name = cpdb.path.filename().string();
+		cpdb.dpth = dbs_dir_iter->path();
+		cpdb.name = cpdb.dpth.filename().string();
 
 		// Read id file.
 		cout << local_time() << "Reading " << cpdb.name << endl;
-		read_lines(cpdb.path / "id.txt", cpdb.cpid);
+		read_lines(cpdb.dpth / "id.txt", cpdb.cpid);
 		cpdb.num_compounds = cpdb.cpid.size();
 		cout << local_time() << "Found " << cpdb.num_compounds << " compounds" << endl;
 
 		// Read molecular descriptor files.
-		read_types<uint16_t>(cpdb.path / "natm.u16", cpdb.natm);
+		read_types<uint16_t>(cpdb.dpth / "natm.u16", cpdb.natm);
 		assert(cpdb.natm.size() == cpdb.num_compounds);
-		read_types<uint16_t>(cpdb.path / "nhbd.u16", cpdb.nhbd);
+		read_types<uint16_t>(cpdb.dpth / "nhbd.u16", cpdb.nhbd);
 		assert(cpdb.nhbd.size() == cpdb.num_compounds);
-		read_types<uint16_t>(cpdb.path / "nhba.u16", cpdb.nhba);
+		read_types<uint16_t>(cpdb.dpth / "nhba.u16", cpdb.nhba);
 		assert(cpdb.nhba.size() == cpdb.num_compounds);
-		read_types<uint16_t>(cpdb.path / "nrtb.u16", cpdb.nrtb);
+		read_types<uint16_t>(cpdb.dpth / "nrtb.u16", cpdb.nrtb);
 		assert(cpdb.nrtb.size() == cpdb.num_compounds);
-		read_types<uint16_t>(cpdb.path / "nrng.u16", cpdb.nrng);
+		read_types<uint16_t>(cpdb.dpth / "nrng.u16", cpdb.nrng);
 		assert(cpdb.nrng.size() == cpdb.num_compounds);
-		read_types<float>(cpdb.path / "xmwt.f32", cpdb.xmwt);
+		read_types<float>(cpdb.dpth / "xmwt.f32", cpdb.xmwt);
 		assert(cpdb.xmwt.size() == cpdb.num_compounds);
-		read_types<float>(cpdb.path / "tpsa.f32", cpdb.tpsa);
+		read_types<float>(cpdb.dpth / "tpsa.f32", cpdb.tpsa);
 		assert(cpdb.tpsa.size() == cpdb.num_compounds);
-		read_types<float>(cpdb.path / "clgp.f32", cpdb.clgp);
+		read_types<float>(cpdb.dpth / "clgp.f32", cpdb.clgp);
 		assert(cpdb.clgp.size() == cpdb.num_compounds);
 
 		// Read usrcat feature file.
-		read_types<array<float, 60>>(cpdb.path / "usrcat.f32", cpdb.usrcat);
+		read_types<array<float, 60>>(cpdb.dpth / "usrcat.f32", cpdb.usrcat);
 		cpdb.num_conformers = cpdb.usrcat.size();
 		cout << local_time() << "Found " << cpdb.num_conformers << " conformers" << endl;
 		assert(cpdb.num_conformers == cpdb.num_compounds << 2);
 
 		// Read conformers footer file.
-		read_types<size_t>(cpdb.path / "conformers.sdf.ftr", cpdb.conformers_ftr);
+		read_types<size_t>(cpdb.dpth / "conformers.sdf.ftr", cpdb.conformers_ftr);
 		assert(cpdb.conformers_ftr.size() == cpdb.num_conformers);
-//		stream_vector<size_t> descriptors(cpdb.path / "descriptors.tsv");
+//		stream_vector<size_t> descriptors(cpdb.dpth / "descriptors.tsv");
 //		assert(descriptors.size() == num_compounds);
 	}
 	string db_op_in_array;
@@ -288,7 +288,7 @@ int main(int argc, char* argv[])
 		cout << local_time() << "Using " << num_chunks << " chunks and a chunk size of " << chunk_size << endl;
 		vector<size_t> scase(cpdb.num_compounds);
 		vector<size_t> zcase(num_hits * (num_chunks - 1) + min(num_hits, cpdb.num_compounds - chunk_size * (num_chunks - 1))); // The last chunk might have fewer than num_hits records.
-		ifstream conformers_ifs(cpdb.path / "conformers.sdf");
+		ifstream conformers_ifs(cpdb.dpth / "conformers.sdf");
 
 		// Process each of the query compounds sequentially.
 		const auto num_queries = 1; // Restrict the number of query compounds to 1. Setting num_queries = sup.length() to execute any number of query compounds.
