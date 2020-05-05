@@ -258,15 +258,15 @@ int main(int argc, char* argv[])
 		const auto job_path = jobs_path / _id.to_string();
 		const auto cpdb_name = jobid_view["database"].get_utf8().value; // get_utf8().value returns an instance of std::string_view.
 		const auto score = jobid_view["score"].get_utf8().value;
-		assert(score == "USR" || score == "USRCAT");
-		const size_t usr0 = score == "USRCAT"; // Specify the primary sorting score. 0: USR; 1: USRCAT.
+//		assert(score == "USR" || score == "USRCAT");
+		const size_t usr0 = score.compare("USRCAT") == 0; // Specify the primary sorting score. 0: USR; 1: USRCAT.
 		const auto usr1 = usr0 ^ 1;
 		const auto qnu0 = qn[usr0];
 		const auto qnu1 = qn[usr1];
 
 		// Obtain a constant reference to the selected database.
 		size_t cpdb_index = 0;
-		while (databases[cpdb_index].name != cpdb_name) ++cpdb_index;
+		while (cpdb_name.compare(databases[cpdb_index].name) != 0) ++cpdb_index;
 		const auto& cpdb = databases[cpdb_index];
 
 		// Read the user-supplied SDF file.
