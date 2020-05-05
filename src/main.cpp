@@ -151,7 +151,7 @@ int main(int argc, char* argv[])
 	cout << dbs_path << endl;
 	for (directory_iterator dbs_dir_iter(dbs_path), end_dir_iter; dbs_dir_iter != end_dir_iter; ++dbs_dir_iter)
 	{
-		// Create a database instance.
+		// Create a compound database instance.
 		databases.emplace_back();
 		auto& cpdb = databases.back();
 
@@ -414,7 +414,7 @@ int main(int argc, char* argv[])
 			assert(qo == qn.back());
 
 			// Compute USR and USRCAT scores.
-			cout << local_time() << "Calculating " << cpdb.num_compounds << " " << usr_names[usr0] << " scores" << endl;
+			cout << local_time() << "Screening " << cpdb.name << " and calculating " << cpdb.num_compounds << " " << usr_names[usr0] << " scores from " << cpdb.num_conformers << " conformers" << endl;
 			scores.assign(scores.size(), numeric_limits<double>::max());
 			iota(scase.begin(), scase.end(), 0);
 			cnt.init(num_chunks);
@@ -466,7 +466,7 @@ int main(int argc, char* argv[])
 			SDWriter hits_sdf((output_dir / "hits.sdf").string());
 			ofstream hits_csv(output_dir / "hits.csv");
 			hits_csv.setf(ios::fixed, ios::floatfield);
-			hits_csv << setprecision(8) << "ID,USR score,USRCAT score,2D Tanimoto score,canonicalSMILES,molFormula,natm,nhbd,nhba,nrtb,nrng,xmwt,tpsa,clgp\n";
+			hits_csv << setprecision(8) << "ID,USR score,USRCAT score,2D Tanimoto score,natm,nhbd,nhba,nrtb,nrng,xmwt,tpsa,clgp\n"; // TODO: output canonicalSMILES and molFormula as well.
 			for (size_t l = 0; l < num_hits; ++l)
 			{
 				// Obtain indexes to the hit compound and the hit conformer.
@@ -573,12 +573,12 @@ int main(int argc, char* argv[])
 		assert(compt_update->matched_count() == 1);
 		assert(compt_update->modified_count() == 1);
 
-		// Calculate runtime in seconds and screening speed in million conformers per second.
-		const auto runtime = (endDate - startDate).count() * 1e-9; // in seconds
-		const auto speed = cpdb.num_conformers * 1e-6 * num_queries / runtime;
+		// Calculate runtime in milliseconds and screening speed in thousand conformers per second.
+		const auto runtime = (endDate - startDate).count() * 1e-6; // in milliseconds
+		const auto speed = cpdb.num_conformers * num_queries / runtime;
 		cout
-			<< local_time() << "Completed " << num_queries << " " << (num_queries == 1 ? "query" : "queries") << " in " << setprecision(3) << runtime << " seconds" << endl
-			<< local_time() << "Screening speed was " << setprecision(0) << speed << " M conformers per second" << endl
+			<< local_time() << "Completed " << num_queries << " " << (num_queries == 1 ? "query" : "queries") << " in " << setprecision(3) << runtime << " milliseconds" << endl
+			<< local_time() << "Screening speed was " << setprecision(0) << speed << " K conformers per second" << endl
 		;
 	}
 }
