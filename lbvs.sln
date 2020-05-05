@@ -13,10 +13,4 @@ Global
 		{C85E20C7-87E0-4EA1-A0B8-911993A02B86}.Release|x64.ActiveCfg = Release|x64
 		{C85E20C7-87E0-4EA1-A0B8-911993A02B86}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {242068A9-24A8-4A1D-B263-01E15E443E63}
-	EndGlobalSection
 EndGlobal
