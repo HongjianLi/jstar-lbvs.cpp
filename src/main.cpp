@@ -107,9 +107,9 @@ array<Point3D, 4> calcRefPoints(const ROMol& mol, const vector<int>& heavyAtoms)
 int main(int argc, char* argv[])
 {
 	// Check the required number of command line arguments.
-	if (argc != 7)
+	if (argc != 6)
 	{
-		cout << "lbvs host port user pwd dbs_path jobs_path" << endl;
+		cout << "lbvs host port user pwd dbs_path" << endl;
 		return 0;
 	}
 
@@ -118,8 +118,7 @@ int main(int argc, char* argv[])
 	const auto port = argv[2];
 	const auto user = argv[3];
 	const auto pwd = argv[4];
-	const path dbs_path = argv[5];
-	const path jobs_path = argv[6];
+	const path cpdbs_path = argv[5];
 
 	// Initialize constants.
 	cout << local_time() << "Initializing" << endl;
@@ -148,15 +147,15 @@ int main(int argc, char* argv[])
 
 	// Read compound database directory.
 	vector<compound_database> databases;
-	cout << dbs_path << endl;
-	for (directory_iterator dbs_dir_iter(dbs_path), end_dir_iter; dbs_dir_iter != end_dir_iter; ++dbs_dir_iter)
+	cout << cpdbs_path << endl;
+	for (directory_iterator cpdbs_dir_iter(cpdbs_path), end_dir_iter; cpdbs_dir_iter != end_dir_iter; ++cpdbs_dir_iter)
 	{
 		// Create a compound database instance.
 		databases.emplace_back();
 		auto& cpdb = databases.back();
 
 		// Assign database path and name.
-		cpdb.dpth = dbs_dir_iter->path();
+		cpdb.dpth = cpdbs_dir_iter->path();
 		cpdb.name = cpdb.dpth.filename().string();
 
 		// Read id file.
@@ -209,7 +208,7 @@ int main(int argc, char* argv[])
 	const auto client = pool.acquire(); // Return value of acquire() is an instance of entry. An entry is a handle on a client object acquired via the pool.
 	auto coll = client->database("jstar").collection("lbvs");
 	const auto jobid_filter = bsoncxx::from_json(R"({ "startDate" : { "$exists" : false }, "database": { "$in": [)" + db_op_in_array + R"(] }})");
-	const auto jobid_foau_options = options::find_one_and_update().sort(bsoncxx::from_json(R"({ "submitDate" : 1 })")).projection(bsoncxx::from_json(R"({ "_id" : 1, "database": 1, "score": 1 })")); // By default, the original document is returned
+	const auto jobid_foau_options = options::find_one_and_update().sort(bsoncxx::from_json(R"({ "submitDate" : 1 })")).projection(bsoncxx::from_json(R"({ "_id" : 1, "qrySdf": 1, "database": 1, "score": 1 })")); // By default, the original document is returned
 
 	// Initialize variables.
 	array<vector<int>, num_subsets> subsets;
@@ -255,10 +254,10 @@ int main(int argc, char* argv[])
 		// Obtain job properties.
 		const auto _id = jobid_view["_id"].get_oid().value;
 		cout << local_time() << "Executing job " << _id.to_string() << endl;
-		const auto job_path = jobs_path / _id.to_string();
-		const auto cpdb_name = jobid_view["database"].get_utf8().value; // get_utf8().value returns an instance of std::string_view.
+		const auto qry_sdf = jobid_view["qrySdf"].get_utf8().value; // get_utf8().value returns an instance of std::string_view.
+		const auto cpdb_name = jobid_view["database"].get_utf8().value;
 		const auto score = jobid_view["score"].get_utf8().value;
-//		assert(score == "USR" || score == "USRCAT");
+		assert(score.compare("USR") == 0 || score.compare("USRCAT") == 0);
 		const size_t usr0 = score.compare("USRCAT") == 0; // Specify the primary sorting score. 0: USR; 1: USRCAT.
 		const auto usr1 = usr0 ^ 1;
 		const auto qnu0 = qn[usr0];
@@ -271,7 +270,8 @@ int main(int argc, char* argv[])
 
 		// Read the user-supplied SDF file.
 		cout << local_time() << "Reading the query file" << endl;
-		SDMolSupplier sup((job_path / "query.sdf").string(), true, false, true); // sanitize, removeHs, strictParsing. Note: setting removeHs=true (which is the default setting) will lead to fewer hydrogen bond acceptors being matched.
+		istringstream qry_sdf_ss(qry_sdf.data()); // data() may return a pointer to a buffer that is not null-terminated. Therefore it is typically a mistake to pass data() to a routine that takes just a const CharT* and expects a null-terminated string.
+		SDMolSupplier qry_mol_sup(&qry_sdf_ss, false, true, false, true); // takeOwnership, sanitize, removeHs, strictParsing. Note: setting removeHs=true (which is the default setting) will lead to fewer hydrogen bond acceptors being matched.
 
 		// Initialize vectors to store compounds' primary score and their corresponding conformer.
 		vector<double> scores(cpdb.num_compounds); // Primary score of compounds.
@@ -291,11 +291,13 @@ int main(int argc, char* argv[])
 		ifstream conformers_ifs(cpdb.dpth / "conformers.sdf");
 
 		// Process each of the query compounds sequentially.
-		const auto num_queries = 1; // Restrict the number of query compounds to 1. Setting num_queries = sup.length() to execute any number of query compounds.
+		ostringstream hit_sdf, hit_csv;
+		SDWriter hit_sdf_writer(&hit_sdf, false); // std::ostream*, bool takeOwnership
+		const auto num_queries = 1; // Restrict the number of query compounds to 1. Setting num_queries = qry_mol_sup.length() to execute any number of query compounds.
 		for (unsigned int query_number = 0; query_number < num_queries; ++query_number)
 		{
 			cout << local_time() << "Parsing query compound " << query_number << endl;
-			const unique_ptr<ROMol> qry_ptr(sup.next()); // Calling next() may print "ERROR: Could not sanitize compound on line XXXX" to stderr.
+			const unique_ptr<ROMol> qry_ptr(qry_mol_sup.next()); // Calling next() may print "ERROR: Could not sanitize compound on line XXXX" to stderr.
 			auto& qryMol = *qry_ptr;
 
 			// Get the number of atoms, including and excluding hydrogens.
@@ -303,11 +305,6 @@ int main(int argc, char* argv[])
 			const auto num_heavy_atoms = qryMol.getNumHeavyAtoms();
 			assert(num_heavy_atoms);
 			cout << local_time() << "Found " << num_atoms << " atoms and " << num_heavy_atoms << " heavy atoms" << endl;
-
-			// Create an output directory.
-			cout << local_time() << "Creating output directory" << endl;
-			const auto output_dir = job_path / to_string(query_number);
-			create_directory(output_dir);
 
 			// Calculate Morgan fingerprint.
 			cout << local_time() << "Calculating Morgan fingerprint" << endl;
@@ -463,10 +460,8 @@ int main(int argc, char* argv[])
 
 			// Create output directory and write output files.
 			cout << local_time() << "Writing output files" << endl;
-			SDWriter hits_sdf((output_dir / "hits.sdf").string());
-			ofstream hits_csv(output_dir / "hits.csv");
-			hits_csv.setf(ios::fixed, ios::floatfield);
-			hits_csv << setprecision(8) << "ID,USR score,USRCAT score,2D Tanimoto score,natm,nhbd,nhba,nrtb,nrng,xmwt,tpsa,clgp\n"; // TODO: output canonicalSMILES and molFormula as well.
+			hit_csv.setf(ios::fixed, ios::floatfield);
+			hit_csv << setprecision(8) << "ID,USR score,USRCAT score,2D Tanimoto score,natm,nhbd,nhba,nrtb,nrng,xmwt,tpsa,clgp\n"; // TODO: output canonicalSMILES and molFormula as well.
 			for (size_t l = 0; l < num_hits; ++l)
 			{
 				// Obtain indexes to the hit compound and the hit conformer.
@@ -474,14 +469,14 @@ int main(int argc, char* argv[])
 				const auto j = cnfids[k];
 
 				// Read SDF content of the hit conformer.
-				const auto hitSdf = read_string(cpdb.conformers_ftr, j, conformers_ifs);
+				const auto hit_sdf = read_string(cpdb.conformers_ftr, j, conformers_ifs);
 
 				// Construct a RDKit ROMol object.
-				istringstream iss(hitSdf);
-				SDMolSupplier sup(&iss, false, true, false, true);
-				assert(sup.length() == 1);
-				assert(sup.atEnd());
-				const unique_ptr<ROMol> hit_ptr(sup.next());
+				istringstream hit_sdf_iss(hit_sdf);
+				SDMolSupplier hit_mol_sup(&hit_sdf_iss, false, true, false, true);
+				assert(hit_mol_sup.length() == 1);
+				assert(hit_mol_sup.atEnd());
+				const unique_ptr<ROMol> hit_ptr(hit_mol_sup.next());
 				auto& hitMol = *hit_ptr;
 
 				// Calculate Morgan fingerprint.
@@ -521,7 +516,7 @@ int main(int argc, char* argv[])
 				transformConformer(hitCnf, trans);
 
 				// Write the aligned hit conformer.
-				hits_sdf.write(hitMol);
+				hit_sdf_writer.write(hitMol);
 
 				// Calculate the secondary score of the saved conformer, which has the best primary score.
 				const auto& d = cpdb.usrcat[j];
@@ -535,7 +530,7 @@ int main(int argc, char* argv[])
 				const auto u1score = 1 / (1 + s         * qv[usr1]); // Secondary score of the current compound.
 //				vector<string> descs;
 //				split(descs, descriptors[k], boost::is_any_of("	")); // Split the descriptor line into columns, which are [ID	canonicalSMILES	molFormula	natm	nhbd	nhba	nrtb	nrng	xmwt	tpsa	clgp	subset]
-				hits_csv
+				hit_csv
 					<< cpdb.cpid[k]
 //					<< ',' << descs[1]
 //					<< ',' << cpdb.name
@@ -557,11 +552,15 @@ int main(int argc, char* argv[])
 		}
 
 		// Update job status.
-		cout << local_time() << "Setting end time" << endl;
+		cout << local_time() << "Setting end date" << endl;
 		const auto endDate = system_clock::now();
+		const auto hit_sdf_str = hit_sdf.str();
+		const auto hit_csv_str = hit_csv.str();
 		bsoncxx::builder::basic::document compt_update_builder;
 		compt_update_builder.append(
 			kvp("$set", [=](bsoncxx::builder::basic::sub_document set_subdoc) {
+				set_subdoc.append(kvp("hitSdf", hit_sdf_str));
+				set_subdoc.append(kvp("hitCsv", hit_csv_str));
 				set_subdoc.append(kvp("endDate", bsoncxx::types::b_date(endDate)));
 				set_subdoc.append(kvp("numQueries", num_queries));
 				set_subdoc.append(kvp("numConformers", static_cast<int64_t>(cpdb.num_conformers)));
@@ -573,11 +572,11 @@ int main(int argc, char* argv[])
 		assert(compt_update->matched_count() == 1);
 		assert(compt_update->modified_count() == 1);
 
-		// Calculate runtime in milliseconds and screening speed in thousand conformers per second.
-		const auto runtime = (endDate - startDate).count() * 1e-6; // in milliseconds
-		const auto speed = cpdb.num_conformers * num_queries / runtime;
+		// Calculate runtime in seconds and screening speed in thousand conformers per second.
+		const auto runtime = (endDate - startDate).count() * 1e-7; // in seconds
+		const auto speed = cpdb.num_conformers * num_queries * 1e-3 / runtime;
 		cout
-			<< local_time() << "Completed " << num_queries << " " << (num_queries == 1 ? "query" : "queries") << " in " << setprecision(3) << runtime << " milliseconds" << endl
+			<< local_time() << "Completed " << num_queries << " " << (num_queries == 1 ? "query" : "queries") << " in " << setprecision(3) << runtime << " seconds" << endl
 			<< local_time() << "Screening speed was " << setprecision(0) << speed << " K conformers per second" << endl
 		;
 	}
