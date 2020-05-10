@@ -573,11 +573,11 @@ int main(int argc, char* argv[])
 		assert(compt_update->modified_count() == 1);
 
 		// Calculate runtime in seconds and screening speed in thousand conformers per second.
-		const auto runtime = (endDate - startDate).count() * 1e-7; // in seconds
+		const auto runtime = (endDate - startDate).count() * 1e-9; // in seconds
 		const auto speed = cpdb.num_conformers * num_queries * 1e-3 / runtime;
 		cout
 			<< local_time() << "Completed " << num_queries << " " << (num_queries == 1 ? "query" : "queries") << " in " << setprecision(3) << runtime << " seconds" << endl
-			<< local_time() << "Screening speed was " << setprecision(0) << speed << " K conformers per second" << endl
+			<< local_time() << "Screening speed was " << setprecision(2) << speed << " K conformers per second" << endl
 		;
 	}
 }
