@@ -189,8 +189,8 @@ int main(int argc, char* argv[])
 		assert(cpdb.num_conformers == cpdb.num_compounds << 2);
 
 		// Read conformers footer file.
-		read_types<size_t>(cpdb.dpth / "conformers.sdf.ftr", cpdb.conformers_ftr);
-		assert(cpdb.conformers_ftr.size() == cpdb.num_conformers);
+		read_types<size_t>(cpdb.dpth / "conformers.sdf.ftr", cpdb.conformers_sdf_ftr);
+		assert(cpdb.conformers_sdf_ftr.size() == cpdb.num_conformers);
 //		stream_vector<size_t> descriptors(cpdb.dpth / "descriptors.tsv");
 //		assert(descriptors.size() == num_compounds);
 	}
@@ -289,7 +289,7 @@ int main(int argc, char* argv[])
 		cout << local_time() << "Using " << num_chunks << " chunks and a chunk size of " << chunk_size << endl;
 		vector<size_t> scase(cpdb.num_compounds);
 		vector<size_t> zcase(num_hits * (num_chunks - 1) + min(num_hits, cpdb.num_compounds - chunk_size * (num_chunks - 1))); // The last chunk might have fewer than num_hits records.
-		ifstream conformers_ifs(cpdb.dpth / "conformers.sdf");
+		ifstream conformers_sdf_ifs(cpdb.dpth / "conformers.sdf");
 
 		// Process each of the query compounds sequentially.
 		ostringstream hit_mol_sdf_oss, hit_mol_csv_oss;
@@ -470,7 +470,7 @@ int main(int argc, char* argv[])
 				const auto j = cnfids[k];
 
 				// Read SDF content of the hit conformer.
-				istringstream hit_mol_sdf_iss(read_string(cpdb.conformers_ftr, j, conformers_ifs));
+				istringstream hit_mol_sdf_iss(read_string(cpdb.conformers_sdf_ftr, j, conformers_sdf_ifs));
 
 				// Construct a RDKit ROMol object.
 				SDMolSupplier hit_mol_sup(&hit_mol_sdf_iss, false, true, false, true);

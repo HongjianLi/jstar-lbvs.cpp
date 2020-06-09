@@ -26,7 +26,7 @@ public:
 	vector<float> tpsa; //!< Topological polar surface area.
 	vector<float> clgp; //!< clogP
 	vector<array<float, 60>> usrcat; //!< USRCAT features.
-	vector<size_t> conformers_ftr; //!< Footer file of conformers.sdf
+	vector<size_t> conformers_sdf_ftr; //!< Footer file of conformers.sdf
 };
 
 #endif
