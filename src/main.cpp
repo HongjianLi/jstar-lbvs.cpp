@@ -188,11 +188,11 @@ int main(int argc, char* argv[])
 		cout << local_time() << "Found " << cpdb.num_conformers << " conformers" << endl;
 		assert(cpdb.num_conformers == cpdb.num_compounds << 2);
 
-		// Read conformers footer file.
+		// Read conformers.sdf and descriptors.tsv footer files.
 		read_types<size_t>(cpdb.dpth / "conformers.sdf.ftr", cpdb.conformers_sdf_ftr);
 		assert(cpdb.conformers_sdf_ftr.size() == cpdb.num_conformers);
-//		stream_vector<size_t> descriptors(cpdb.dpth / "descriptors.tsv");
-//		assert(descriptors.size() == num_compounds);
+		read_types<size_t>(cpdb.dpth / "descriptors.tsv.ftr", cpdb.descriptors_tsv_ftr);
+		assert(cpdb.descriptors_tsv_ftr.size() == cpdb.num_compounds);
 	}
 	string db_op_in_array;
 	for (size_t i = 0; i < databases.size(); ++i)
@@ -290,6 +290,7 @@ int main(int argc, char* argv[])
 		vector<size_t> scase(cpdb.num_compounds);
 		vector<size_t> zcase(num_hits * (num_chunks - 1) + min(num_hits, cpdb.num_compounds - chunk_size * (num_chunks - 1))); // The last chunk might have fewer than num_hits records.
 		ifstream conformers_sdf_ifs(cpdb.dpth / "conformers.sdf");
+		ifstream descriptors_tsv_ifs(cpdb.dpth / "descriptors.tsv");
 
 		// Process each of the query compounds sequentially.
 		ostringstream hit_mol_sdf_oss, hit_mol_csv_oss;
@@ -525,19 +526,29 @@ int main(int argc, char* argv[])
 				{
 					s += abs(q[i] - d[i]);
 				}
-
 				const auto u0score = 1 / (1 + scores[k] * qv[usr0]); // Primary score of the current compound.
 				const auto u1score = 1 / (1 + s         * qv[usr1]); // Secondary score of the current compound.
-//				vector<string> descs;
-//				split(descs, descriptors[k], boost::is_any_of("	")); // Split the descriptor line into columns, which are [ID	canonicalSMILES	molFormula	natm	nhbd	nhba	nrtb	nrng	xmwt	tpsa	clgp	subset]
+
+				// Read SDF content of the hit conformer.
+				vector<string> descriptors;
+				split(descriptors, read_string(cpdb.descriptors_tsv_ftr, k, descriptors_tsv_ifs), boost::is_any_of("	")); // Split the descriptor line into columns, which are [ID	canonicalSMILES	molFormula	natm	nhbd	nhba	nrtb	nrng	xmwt	tpsa	clgp]
+				assert(descriptors[0] == cpdb.cpid[k]);
+				assert(stoul(descriptors[3]) == cpdb.natm[k]);
+				assert(stoul(descriptors[4]) == cpdb.nhbd[k]);
+				assert(stoul(descriptors[5]) == cpdb.nhba[k]);
+				assert(stoul(descriptors[6]) == cpdb.nrtb[k]);
+				assert(stoul(descriptors[7]) == cpdb.nrng[k]);
+				assert(stof(descriptors[8]) == cpdb.xmwt[k]);
+				assert(stof(descriptors[9]) == cpdb.tpsa[k]);
+				assert(stof(descriptors[10]) == cpdb.clgp[k]);
 				hit_mol_csv_oss
-					<< cpdb.cpid[k]
-//					<< ',' << descs[1]
+					<< cpdb.cpid[k] // ID
 //					<< ',' << cpdb.name
 					<< ',' << (usr1 ? u0score : u1score)
 					<< ',' << (usr1 ? u1score : u0score)
-					<< ',' << ts
-//					<< ',' // subset
+					<< ',' << ts // Tanimoto score
+					<< ',' << descriptors[1] // Canonical SMILES
+					<< ',' << descriptors[2] // Molecular formula
 					<< ',' << cpdb.natm[k]
 					<< ',' << cpdb.nhbd[k]
 					<< ',' << cpdb.nhba[k]
