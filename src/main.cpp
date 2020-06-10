@@ -463,7 +463,7 @@ int main(int argc, char* argv[])
 			// Create output directory and write output files.
 			cout << local_time() << "Writing output string streams" << endl;
 			hit_mol_csv_oss.setf(ios::fixed, ios::floatfield);
-			hit_mol_csv_oss << setprecision(8) << "ID,USR score,USRCAT score,2D Tanimoto score,natm,nhbd,nhba,nrtb,nrng,xmwt,tpsa,clgp\n"; // TODO: output canonicalSMILES and molFormula as well.
+			hit_mol_csv_oss << setprecision(8) << "ID,USR score,USRCAT score,2D Tanimoto score,canonicalSMILES,molFormula,natm,nhbd,nhba,nrtb,nrng,xmwt,tpsa,clgp\n";
 			for (size_t l = 0; l < num_hits; ++l)
 			{
 				// Obtain indexes to the hit compound and the hit conformer.
