@@ -150,6 +150,9 @@ int main(int argc, char* argv[])
 	cout << cpdbs_path << endl;
 	for (directory_iterator cpdbs_dir_iter(cpdbs_path), end_dir_iter; cpdbs_dir_iter != end_dir_iter; ++cpdbs_dir_iter)
 	{
+		// Filter out non directory.
+		if (!cpdbs_dir_iter->is_directory()) continue;
+
 		// Create a compound database instance.
 		databases.emplace_back();
 		auto& cpdb = databases.back();
