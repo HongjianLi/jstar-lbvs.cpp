@@ -56,15 +56,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="src\compound_database.hpp" />
-    <ClInclude Include="src\vector_reader.hpp" />
+    <ClInclude Include="src\utility.hpp" />
     <ClInclude Include="src\safe_counter.hpp" />
     <ClInclude Include="src\io_service_pool.hpp" />
+    <ClInclude Include="src\compound_database.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\safe_counter.cpp" />
     <ClCompile Include="src\io_service_pool.cpp" />
+    <ClCompile Include="src\compound_database.cpp" />
+    <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

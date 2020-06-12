@@ -4,6 +4,7 @@
 
 #include <string>
 #include <vector>
+#include <fstream>
 #include <filesystem>
 using namespace std;
 using namespace std::filesystem;
@@ -12,6 +13,10 @@ using namespace std::filesystem;
 class compound_database
 {
 public:
+	explicit compound_database(const path dpth);
+	string read_conformer(const size_t index, ifstream& ifs) const;
+	string read_descriptors(const size_t index, ifstream& ifs) const;
+
 	string name; //!< Database name.
 	path dpth; //!< Path to the database directory.
 	size_t num_compounds; //!< Number of compound.
@@ -28,6 +33,11 @@ public:
 	vector<array<float, 60>> usrcat; //!< USRCAT features.
 	vector<size_t> conformers_sdf_ftr; //!< Footer file of conformers.sdf
 	vector<size_t> descriptors_tsv_ftr; //!< Footer file of descriptors.tsv
+protected:
+	template <typename T>
+	static void read_types(const path src, vector<T>& vec); // Sequential read can be very fast when using SSD.
+	static void read_lines(const path src, vector<string>& vec); // Sequential read can be very fast when using SSD.
+	static string read_string(const vector<size_t>& ftr, const size_t index, ifstream& ifs);
 };
 
 #endif

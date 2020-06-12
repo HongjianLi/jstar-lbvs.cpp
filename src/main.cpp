@@ -25,10 +25,10 @@
 #include <mongocxx/pool.hpp>
 #include <mongocxx/client.hpp>
 #include <bsoncxx/json.hpp>
-#include "io_service_pool.hpp"
+#include "utility.hpp"
 #include "safe_counter.hpp"
+#include "io_service_pool.hpp"
 #include "compound_database.hpp"
-#include "vector_reader.hpp"
 using namespace std;
 using namespace std::chrono;
 using namespace std::filesystem;
@@ -147,55 +147,13 @@ int main(int argc, char* argv[])
 
 	// Read compound database directory.
 	vector<compound_database> databases;
-	cout << cpdbs_path << endl;
 	for (directory_iterator cpdbs_dir_iter(cpdbs_path), end_dir_iter; cpdbs_dir_iter != end_dir_iter; ++cpdbs_dir_iter)
 	{
 		// Filter out non directory.
 		if (!cpdbs_dir_iter->is_directory()) continue;
 
 		// Create a compound database instance.
-		databases.emplace_back();
-		auto& cpdb = databases.back();
-
-		// Assign database path and name.
-		cpdb.dpth = cpdbs_dir_iter->path();
-		cpdb.name = cpdb.dpth.filename().string();
-
-		// Read id file.
-		cout << local_time() << "Reading " << cpdb.name << endl;
-		read_lines(cpdb.dpth / "id.txt", cpdb.cpid);
-		cpdb.num_compounds = cpdb.cpid.size();
-		cout << local_time() << "Found " << cpdb.num_compounds << " compounds" << endl;
-
-		// Read molecular descriptor files.
-		read_types<uint16_t>(cpdb.dpth / "natm.u16", cpdb.natm);
-		assert(cpdb.natm.size() == cpdb.num_compounds);
-		read_types<uint16_t>(cpdb.dpth / "nhbd.u16", cpdb.nhbd);
-		assert(cpdb.nhbd.size() == cpdb.num_compounds);
-		read_types<uint16_t>(cpdb.dpth / "nhba.u16", cpdb.nhba);
-		assert(cpdb.nhba.size() == cpdb.num_compounds);
-		read_types<uint16_t>(cpdb.dpth / "nrtb.u16", cpdb.nrtb);
-		assert(cpdb.nrtb.size() == cpdb.num_compounds);
-		read_types<uint16_t>(cpdb.dpth / "nrng.u16", cpdb.nrng);
-		assert(cpdb.nrng.size() == cpdb.num_compounds);
-		read_types<float>(cpdb.dpth / "xmwt.f32", cpdb.xmwt);
-		assert(cpdb.xmwt.size() == cpdb.num_compounds);
-		read_types<float>(cpdb.dpth / "tpsa.f32", cpdb.tpsa);
-		assert(cpdb.tpsa.size() == cpdb.num_compounds);
-		read_types<float>(cpdb.dpth / "clgp.f32", cpdb.clgp);
-		assert(cpdb.clgp.size() == cpdb.num_compounds);
-
-		// Read usrcat feature file.
-		read_types<array<float, 60>>(cpdb.dpth / "usrcat.f32", cpdb.usrcat);
-		cpdb.num_conformers = cpdb.usrcat.size();
-		cout << local_time() << "Found " << cpdb.num_conformers << " conformers" << endl;
-		assert(cpdb.num_conformers == cpdb.num_compounds << 2);
-
-		// Read conformers.sdf and descriptors.tsv footer files.
-		read_types<size_t>(cpdb.dpth / "conformers.sdf.ftr", cpdb.conformers_sdf_ftr);
-		assert(cpdb.conformers_sdf_ftr.size() == cpdb.num_conformers);
-		read_types<size_t>(cpdb.dpth / "descriptors.tsv.ftr", cpdb.descriptors_tsv_ftr);
-		assert(cpdb.descriptors_tsv_ftr.size() == cpdb.num_compounds);
+		databases.emplace_back(cpdbs_dir_iter->path());
 	}
 	string db_op_in_array;
 	for (size_t i = 0; i < databases.size(); ++i)
@@ -474,7 +432,7 @@ int main(int argc, char* argv[])
 				const auto j = cnfids[k];
 
 				// Read SDF content of the hit conformer.
-				istringstream hit_mol_sdf_iss(read_string(cpdb.conformers_sdf_ftr, j, conformers_sdf_ifs));
+				istringstream hit_mol_sdf_iss(cpdb.read_conformer(j, conformers_sdf_ifs));
 
 				// Construct a RDKit ROMol object.
 				SDMolSupplier hit_mol_sup(&hit_mol_sdf_iss, false, true, false, true);
@@ -534,7 +492,7 @@ int main(int argc, char* argv[])
 
 				// Read SDF content of the hit conformer.
 				vector<string> descriptors;
-				split(descriptors, read_string(cpdb.descriptors_tsv_ftr, k, descriptors_tsv_ifs), boost::is_any_of("	")); // Split the descriptor line into columns, which are [ID	canonicalSMILES	molFormula	natm	nhbd	nhba	nrtb	nrng	xmwt	tpsa	clgp]
+				split(descriptors, cpdb.read_descriptors(k, descriptors_tsv_ifs), boost::is_any_of("	")); // Split the descriptor line into columns, which are [ID	canonicalSMILES	molFormula	natm	nhbd	nhba	nrtb	nrng	xmwt	tpsa	clgp]
 				assert(descriptors[0] == cpdb.cpid[k]);
 				assert(stoul(descriptors[3]) == cpdb.natm[k]);
 				assert(stoul(descriptors[4]) == cpdb.nhbd[k]);
