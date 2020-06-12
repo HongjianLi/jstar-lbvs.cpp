@@ -181,7 +181,6 @@ int main(int argc, char* argv[])
 	cout << local_time() << "Creating an io service pool of " << num_threads << " worker threads" << endl;
 	io_service_pool io(num_threads);
 	safe_counter<size_t> cnt;
-	const auto num_chunks = num_threads << 2;
 
 	// Enter event loop.
 	cout << local_time() << "Entering event loop" << endl;
@@ -244,7 +243,8 @@ int main(int argc, char* argv[])
 		};
 
 		// Initialize the number of chunks and the number of compounds per chunk.
-		const auto chunk_size = 1 + (cpdb.num_compounds - 1) / num_chunks;
+		const auto chunk_size = max(1 + (cpdb.num_compounds - 1) / (num_threads << 2), num_hits);
+		const auto num_chunks = 1 + (cpdb.num_compounds - 1) / chunk_size;
 		assert(chunk_size * num_chunks >= cpdb.num_compounds);
 		assert(chunk_size >= num_hits);
 		cout << local_time() << "Using " << num_chunks << " chunks and a chunk size of " << chunk_size << endl;
