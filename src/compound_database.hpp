@@ -15,7 +15,6 @@ class compound_database
 public:
 	explicit compound_database(const path dpth);
 	string read_conformer(const size_t index, ifstream& ifs) const;
-	string read_descriptors(const size_t index, ifstream& ifs) const;
 
 	string name; //!< Database name.
 	path dpth; //!< Path to the database directory.
@@ -32,7 +31,6 @@ public:
 	vector<float> clgp; //!< clogP
 	vector<array<float, 60>> usrcat; //!< USRCAT features.
 	vector<size_t> conformers_sdf_ftr; //!< Footer file of conformers.sdf
-	vector<size_t> descriptors_tsv_ftr; //!< Footer file of descriptors.tsv
 protected:
 	template <typename T>
 	static void read_types(const path src, vector<T>& vec); // Sequential read can be very fast when using SSD.

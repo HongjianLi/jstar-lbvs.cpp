@@ -52,7 +52,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(BOOST_ROOT)\lib;$(RDKIT_ROOT)\lib;$(MONGO_CXX_DRIVER_ROOT)\lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>FileParsers.lib;Fingerprints.lib;SmilesParse.lib;Depictor.lib;Subgraphs.lib;MolTransforms.lib;SubstructMatch.lib;GraphMol.lib;Alignment.lib;RDGeometryLib.lib;DataStructs.lib;EigenSolvers.lib;RDGeneral.lib;RingDecomposerLib.lib;mongocxx.lib;bsoncxx.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Descriptors.lib;FileParsers.lib;Fingerprints.lib;SmilesParse.lib;Depictor.lib;Subgraphs.lib;MolTransforms.lib;SubstructMatch.lib;GraphMol.lib;Alignment.lib;RDGeometryLib.lib;DataStructs.lib;EigenSolvers.lib;RDGeneral.lib;RingDecomposerLib.lib;mongocxx.lib;bsoncxx.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

@@ -21,6 +21,8 @@
 #include <GraphMol/MolTransforms/MolTransforms.h>
 #include <GraphMol/FileParsers/MolWriters.h>
 #include <GraphMol/Depictor/RDDepictor.h>
+#include <GraphMol/FragCatalog/FragFPGenerator.h>
+#include <GraphMol/Descriptors/MolDescriptors.h>
 #include <mongocxx/instance.hpp>
 #include <mongocxx/pool.hpp>
 #include <mongocxx/client.hpp>
@@ -39,6 +41,7 @@ using namespace RDKit::MorganFingerprints;
 using namespace RDGeom;
 using namespace RDNumeric::Alignments;
 using namespace MolTransforms;
+using namespace RDKit::Descriptors;
 using namespace mongocxx;
 using bsoncxx::builder::basic::kvp;
 
@@ -254,7 +257,7 @@ int main(int argc, char* argv[])
 		ifstream descriptors_tsv_ifs(cpdb.dpth / "descriptors.tsv");
 
 		// Process each of the query compounds sequentially.
-		ostringstream hit_mol_sdf_oss, hit_mol_csv_oss;
+		ostringstream hit_mol_sdf_oss;
 		SDWriter hit_mol_sdf_writer(&hit_mol_sdf_oss, false); // std::ostream*, bool takeOwnership
 		const auto num_queries = 1; // Restrict the number of query compounds to 1. Setting num_queries = qry_mol_sup.length() to execute any number of query compounds.
 		for (unsigned int query_number = 0; query_number < num_queries; ++query_number)
@@ -421,15 +424,23 @@ int main(int argc, char* argv[])
 			cout << local_time() << "Sorting " << zcase.size() << " hits by " << usr_names[usr0] << " score" << endl;
 			sort(zcase.begin(), zcase.end(), compare);
 
-			// Create output directory and write output files.
-			cout << local_time() << "Writing output string streams" << endl;
-			hit_mol_csv_oss.setf(ios::fixed, ios::floatfield);
-			hit_mol_csv_oss << setprecision(8) << "ID,USR score,USRCAT score,2D Tanimoto score,canonicalSMILES,molFormula,natm,nhbd,nhba,nrtb,nrng,xmwt,tpsa,clgp\n";
+			// Write hit molecules to a string stream for output.
+			cout << local_time() << "Writing hit molecules to a string stream" << endl;
 			for (size_t l = 0; l < num_hits; ++l)
 			{
 				// Obtain indexes to the hit compound and the hit conformer.
 				const auto k = zcase[l];
 				const auto j = cnfids[k];
+
+				// Calculate the secondary score of the saved conformer, which has the best primary score.
+				const auto& d = cpdb.usrcat[j];
+				double s = 0;
+				for (size_t i = 0; i < qnu1; ++i)
+				{
+					s += abs(q[i] - d[i]);
+				}
+				const auto u0score = 1 / (1 + scores[k] * qv[usr0]); // Primary score of the current compound.
+				const auto u1score = 1 / (1 + s * qv[usr1]); // Secondary score of the current compound.
 
 				// Read SDF content of the hit conformer.
 				istringstream hit_mol_sdf_iss(cpdb.read_conformer(j, conformers_sdf_ifs));
@@ -446,6 +457,25 @@ int main(int argc, char* argv[])
 
 				// Calculate Tanimoto similarity.
 				const auto ts = TanimotoSimilarity(*qryFp, *hitFp);
+
+				// Remove hydrogens to calculate canonical SMILES.
+				const unique_ptr<ROMol> hitMolNoH(removeHs(hitMol));
+
+				// Calculate descriptors. This can be done either by calculating them on the fly, or by reading the precalculated values from descriptors.tsv.
+				hitMol.setProp<string>("database", cpdb.name);
+				hitMol.setProp<string>("canonicalSMILES", MolToSmiles(*hitMolNoH)); // Default parameters are: const ROMol& mol, bool doIsomericSmiles = true, bool doKekule = false, int rootedAtAtom = -1, bool canonical = true, bool allBondsExplicit = false, bool allHsExplicit = false, bool doRandom = false. https://www.rdkit.org/docs/cppapi/namespaceRDKit.html#a3636828cca83a233d7816f3652a9eb6b
+				hitMol.setProp<string>("molFormula", calcMolFormula(hitMol));
+				hitMol.setProp<unsigned int>("numAtoms", cpdb.natm[k]);
+				hitMol.setProp<unsigned int>("numHBD", cpdb.nhbd[k]);
+				hitMol.setProp<unsigned int>("numHBA", cpdb.nhba[k]);
+				hitMol.setProp<unsigned int>("numRotatableBonds", cpdb.nrtb[k]);
+				hitMol.setProp<unsigned int>("numRings", cpdb.nrng[k]);
+				hitMol.setProp<double>("exactMW", cpdb.xmwt[k]);
+				hitMol.setProp<double>("tPSA", cpdb.tpsa[k]);
+				hitMol.setProp<double>("clogP", cpdb.clgp[k]);
+				hitMol.setProp<double>("usrScore", usr1 ? u0score : u1score);
+				hitMol.setProp<double>("usrcatScore", usr1 ? u1score : u0score);
+				hitMol.setProp<double>("tanimotoScore", ts);
 
 				// Find heavy atoms.
 				vector<vector<pair<int, int>>> matchVect;
@@ -479,47 +509,6 @@ int main(int argc, char* argv[])
 
 				// Write the aligned hit conformer.
 				hit_mol_sdf_writer.write(hitMol);
-
-				// Calculate the secondary score of the saved conformer, which has the best primary score.
-				const auto& d = cpdb.usrcat[j];
-				double s = 0;
-				for (size_t i = 0; i < qnu1; ++i)
-				{
-					s += abs(q[i] - d[i]);
-				}
-				const auto u0score = 1 / (1 + scores[k] * qv[usr0]); // Primary score of the current compound.
-				const auto u1score = 1 / (1 + s         * qv[usr1]); // Secondary score of the current compound.
-
-				// Read SDF content of the hit conformer.
-				vector<string> descriptors;
-				split(descriptors, cpdb.read_descriptors(k, descriptors_tsv_ifs), boost::is_any_of("	")); // Split the descriptor line into columns, which are [ID	canonicalSMILES	molFormula	natm	nhbd	nhba	nrtb	nrng	xmwt	tpsa	clgp]
-				assert(descriptors[0] == cpdb.cpid[k]);
-				assert(stoul(descriptors[3]) == cpdb.natm[k]);
-				assert(stoul(descriptors[4]) == cpdb.nhbd[k]);
-				assert(stoul(descriptors[5]) == cpdb.nhba[k]);
-				assert(stoul(descriptors[6]) == cpdb.nrtb[k]);
-				assert(stoul(descriptors[7]) == cpdb.nrng[k]);
-				assert(stof(descriptors[8]) == cpdb.xmwt[k]);
-				assert(stof(descriptors[9]) == cpdb.tpsa[k]);
-				assert(stof(descriptors[10]) == cpdb.clgp[k]);
-				hit_mol_csv_oss
-					<< cpdb.cpid[k] // ID
-//					<< ',' << cpdb.name
-					<< ',' << (usr1 ? u0score : u1score)
-					<< ',' << (usr1 ? u1score : u0score)
-					<< ',' << ts // Tanimoto score
-					<< ',' << descriptors[1] // Canonical SMILES
-					<< ',' << descriptors[2] // Molecular formula
-					<< ',' << cpdb.natm[k]
-					<< ',' << cpdb.nhbd[k]
-					<< ',' << cpdb.nhba[k]
-					<< ',' << cpdb.nrtb[k]
-					<< ',' << cpdb.nrng[k]
-					<< ',' << cpdb.xmwt[k]
-					<< ',' << cpdb.tpsa[k]
-					<< ',' << cpdb.clgp[k]
-					<< '\n'
-				;
 			}
 		}
 
@@ -527,12 +516,10 @@ int main(int argc, char* argv[])
 		cout << local_time() << "Setting end date" << endl;
 		const auto endDate = system_clock::now();
 		const auto hit_mol_sdf = hit_mol_sdf_oss.str();
-		const auto hit_mol_csv = hit_mol_csv_oss.str();
 		bsoncxx::builder::basic::document compt_update_builder;
 		compt_update_builder.append(
 			kvp("$set", [=](bsoncxx::builder::basic::sub_document set_subdoc) {
 				set_subdoc.append(kvp("hitMolSdf", hit_mol_sdf));
-				set_subdoc.append(kvp("hitMolCsv", hit_mol_csv));
 				set_subdoc.append(kvp("endDate", bsoncxx::types::b_date(endDate)));
 				set_subdoc.append(kvp("numQueries", num_queries));
 				set_subdoc.append(kvp("numConformers", static_cast<int64_t>(cpdb.num_conformers)));

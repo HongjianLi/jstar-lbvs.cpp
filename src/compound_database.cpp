@@ -40,18 +40,11 @@ compound_database::compound_database(const path dpth) : dpth(dpth)
 	// Read conformers.sdf and descriptors.tsv footer files.
 	read_types<size_t>(dpth / "conformers.sdf.ftr", conformers_sdf_ftr);
 	assert(conformers_sdf_ftr.size() == num_conformers);
-	read_types<size_t>(dpth / "descriptors.tsv.ftr", descriptors_tsv_ftr);
-	assert(descriptors_tsv_ftr.size() == num_compounds);
 };
 
 string compound_database::read_conformer(const size_t index, ifstream& ifs) const
 {
 	return read_string(conformers_sdf_ftr, index, ifs);
-}
-
-string compound_database::read_descriptors(const size_t index, ifstream& ifs) const
-{
-	return read_string(descriptors_tsv_ftr, index, ifs);
 }
 
 template <typename T>
