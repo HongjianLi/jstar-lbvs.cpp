@@ -254,7 +254,6 @@ int main(int argc, char* argv[])
 		vector<size_t> scase(cpdb.num_compounds);
 		vector<size_t> zcase(num_hits * (num_chunks - 1) + min(num_hits, cpdb.num_compounds - chunk_size * (num_chunks - 1))); // The last chunk might have fewer than num_hits records.
 		ifstream conformers_sdf_ifs(cpdb.dpth / "conformers.sdf");
-		ifstream descriptors_tsv_ifs(cpdb.dpth / "descriptors.tsv");
 
 		// Process each of the query compounds sequentially.
 		ostringstream hit_mol_sdf_oss;
