@@ -20,7 +20,6 @@ public:
 	path dpth; //!< Path to the database directory.
 	size_t num_compounds; //!< Number of compound.
 	size_t num_conformers; //!< Number of 3D conformers. Usually num_conformers == num_compounds < 2
-	vector<string> cpid; //!< Compound identifies.
 	vector<uint16_t> natm; //!< Number of atoms.
 	vector<uint16_t> nhbd; //!< Number of hydrogen bond donors.
 	vector<uint16_t> nhba; //!< Number of hydrogen bond acceptors.
@@ -34,7 +33,6 @@ public:
 protected:
 	template <typename T>
 	static void read_types(const path src, vector<T>& vec); // Sequential read can be very fast when using SSD.
-	static void read_lines(const path src, vector<string>& vec); // Sequential read can be very fast when using SSD.
 	static string read_string(const vector<size_t>& ftr, const size_t index, ifstream& ifs);
 };
 

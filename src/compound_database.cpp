@@ -6,16 +6,11 @@ compound_database::compound_database(const path dpth) : dpth(dpth)
 {
 	// Obtain database name.
 	name = dpth.filename().string();
-
-	// Read id file.
 	cout << local_time() << "Reading " << name << endl;
-	read_lines(dpth / "id.txt", cpid);
-	num_compounds = cpid.size();
-	cout << local_time() << "Found " << num_compounds << " compounds" << endl;
 
 	// Read molecular descriptor files.
 	read_types<uint16_t>(dpth / "natm.u16", natm);
-	assert(natm.size() == num_compounds);
+	num_compounds = natm.size();
 	read_types<uint16_t>(dpth / "nhbd.u16", nhbd);
 	assert(nhbd.size() == num_compounds);
 	read_types<uint16_t>(dpth / "nhba.u16", nhba);
@@ -34,12 +29,13 @@ compound_database::compound_database(const path dpth) : dpth(dpth)
 	// Read usrcat feature file.
 	read_types<array<float, 60>>(dpth / "usrcat.f32", usrcat);
 	num_conformers = usrcat.size();
-	cout << local_time() << "Found " << num_conformers << " conformers" << endl;
 	assert(num_conformers == num_compounds << 2);
 
-	// Read conformers.sdf and descriptors.tsv footer files.
+	// Read conformers.sdf footer file.
 	read_types<size_t>(dpth / "conformers.sdf.ftr", conformers_sdf_ftr);
 	assert(conformers_sdf_ftr.size() == num_conformers);
+
+	cout << local_time() << "Found " << num_compounds << " compounds and " << num_conformers << " conformers" << endl;
 };
 
 string compound_database::read_conformer(const size_t index, ifstream& ifs) const
@@ -56,19 +52,6 @@ void compound_database::read_types(const path src, vector<T>& vec) // Sequential
 	vec.resize(num_bytes / sizeof(T));
 	ifs.seekg(0);
 	ifs.read(reinterpret_cast<char*>(vec.data()), num_bytes);
-}
-
-void compound_database::read_lines(const path src, vector<string>& vec) // Sequential read can be very fast when using SSD.
-{
-	ifstream ifs(src, ios::binary | ios::ate);
-	const size_t num_bytes = ifs.tellg();
-	cout << local_time() << "Reading " << src.filename() << " of " << num_bytes << " bytes" << endl;
-	vec.reserve(num_bytes / 17); // Assuming an average line size is 17 bytes (e.g. a ZINC ID line has 16 characters plus \n).
-	ifs.seekg(0);
-	string line;
-	while (getline(ifs, line)) {
-		vec.push_back(move(line));
-	}
 }
 
 // Read a string from the ifstream after seeking to the corresponding position obtained from the footer vector.
