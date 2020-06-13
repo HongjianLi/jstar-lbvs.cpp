@@ -36,7 +36,6 @@ using namespace std::chrono;
 using namespace std::filesystem;
 using namespace RDKit;
 using namespace RDKit::MolOps;
-using namespace RDDepict;
 using namespace RDKit::MorganFingerprints;
 using namespace RDGeom;
 using namespace RDNumeric::Alignments;
