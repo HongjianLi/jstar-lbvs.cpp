@@ -424,6 +424,10 @@ int main(int argc, char* argv[])
 			sort(zcase.begin(), zcase.end(), compare);
 
 			// Write hit molecules to a string stream for output.
+			// This loop can be parallelized, but beware of using independent conformers_sdf_ifs.
+			// 1) array<ostringstream, num_hits> hit_mol_sdf_oss_arr; cnt.init(num_hits);
+			// 2) for (size_t l = 0; l < num_hits; ++l) { io.post([&,l](){ SDWriter hit_mol_sdf_writer(&hit_mol_sdf_oss_arr[l], false); }); cnt.increment(); }
+			// 3) cnt.wait(); ostringstream hit_mol_sdf_oss; for (size_t l = 0; l < num_hits; ++l) { hit_mol_sdf_oss << hit_mol_sdf_oss_arr[l]; } const auto hit_mol_sdf = hit_mol_sdf_oss.str();
 			cout << local_time() << "Writing hit molecules to a string stream" << endl;
 			for (size_t l = 0; l < num_hits; ++l)
 			{
