@@ -62,6 +62,6 @@ string compound_database::read_string(const vector<size_t>& ftr, const size_t in
 	string str;
 	str.resize(len);
 	ifs.seekg(pos);
-	ifs.read(const_cast<char*>(str.data()), len);
+	ifs.read(str.data(), len);
 	return str;
 }
