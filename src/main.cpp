@@ -12,7 +12,6 @@
 #include <chrono>
 #include <thread>
 #include <boost/format.hpp>
-#include <boost/algorithm/string.hpp>
 #include <GraphMol/SmilesParse/SmilesParse.h>
 #include <GraphMol/FileParsers/MolSupplier.h>
 #include <GraphMol/Fingerprints/MorganFingerprints.h>
