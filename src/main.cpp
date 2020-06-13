@@ -258,7 +258,7 @@ int main(int argc, char* argv[])
 		// Process each of the query compounds sequentially.
 		ostringstream hit_mol_sdf_oss;
 		SDWriter hit_mol_sdf_writer(&hit_mol_sdf_oss, false); // std::ostream*, bool takeOwnership
-		const auto num_queries = 1; // Restrict the number of query compounds to 1. Setting num_queries = qry_mol_sup.length() to execute any number of query compounds.
+		const auto num_queries = qry_mol_sup.length();
 		for (unsigned int query_number = 0; query_number < num_queries; ++query_number)
 		{
 			cout << local_time() << "Parsing query compound " << query_number << endl;
@@ -457,17 +457,19 @@ int main(int argc, char* argv[])
 				// Calculate Tanimoto similarity.
 				const auto ts = TanimotoSimilarity(*qryFp, *hitFp);
 
-				// Remove hydrogens to calculate canonical SMILES.
-				const unique_ptr<ROMol> hitMolNoH(removeHs(hitMol));
+				// Remove hydrogens to calculate canonical SMILES and descriptors.
+				const unique_ptr<ROMol> hitMolNoH_ptr(removeHs(hitMol));
+				const auto& hitMolNoH = *hitMolNoH_ptr;
 
-				// Calculate descriptors. This can be done either by calculating them on the fly, or by reading the precalculated values from descriptors.tsv.
+				// Calculate canonical SMILES, molecular formula and descriptors. This can be done either by calculating them on the fly using the molecule with hydrogens removed, or by reading the precalculated values from *.u16 and *.f32 files.
+				hitMol.setProp<unsigned int>("query", query_number);
 				hitMol.setProp<string>("database", cpdb.name);
-				hitMol.setProp<string>("canonicalSMILES", MolToSmiles(*hitMolNoH)); // Default parameters are: const ROMol& mol, bool doIsomericSmiles = true, bool doKekule = false, int rootedAtAtom = -1, bool canonical = true, bool allBondsExplicit = false, bool allHsExplicit = false, bool doRandom = false. https://www.rdkit.org/docs/cppapi/namespaceRDKit.html#a3636828cca83a233d7816f3652a9eb6b
-				hitMol.setProp<string>("molFormula", calcMolFormula(hitMol));
+				hitMol.setProp<string>("canonicalSMILES", MolToSmiles(hitMolNoH)); // Default parameters are: const ROMol& mol, bool doIsomericSmiles = true, bool doKekule = false, int rootedAtAtom = -1, bool canonical = true, bool allBondsExplicit = false, bool allHsExplicit = false, bool doRandom = false. https://www.rdkit.org/docs/cppapi/namespaceRDKit.html#a3636828cca83a233d7816f3652a9eb6b
+				hitMol.setProp<string>("molFormula", calcMolFormula(hitMolNoH)); // calcMolFormula() will output hydrogens even when the input molecule has called removedHs(). As a result, calcMolFormula(hitMolNoH) == calcMolFormula(hitMol)
 				hitMol.setProp<unsigned int>("numAtoms", cpdb.natm[k]);
 				hitMol.setProp<unsigned int>("numHBD", cpdb.nhbd[k]);
 				hitMol.setProp<unsigned int>("numHBA", cpdb.nhba[k]);
-				hitMol.setProp<unsigned int>("numRotatableBonds", cpdb.nrtb[k]);
+				hitMol.setProp<unsigned int>("numRotatableBonds", cpdb.nrtb[k]); // cpdb.nrtb[k] was precalculated from SMILES before adding hydrogens. Adding hydrogens may lead to more rotatable bonds. As a result, cpdb.nrtb[k] == calcNumRotatableBonds(hitMolNoH) <= calcNumRotatableBonds(hitMol)
 				hitMol.setProp<unsigned int>("numRings", cpdb.nrng[k]);
 				hitMol.setProp<double>("exactMW", cpdb.xmwt[k]);
 				hitMol.setProp<double>("tPSA", cpdb.tpsa[k]);
@@ -520,7 +522,7 @@ int main(int argc, char* argv[])
 			kvp("$set", [=](bsoncxx::builder::basic::sub_document set_subdoc) {
 				set_subdoc.append(kvp("hitMolSdf", hit_mol_sdf));
 				set_subdoc.append(kvp("endDate", bsoncxx::types::b_date(endDate)));
-				set_subdoc.append(kvp("numQueries", num_queries));
+				set_subdoc.append(kvp("numQueries", static_cast<int32_t>(num_queries)));
 				set_subdoc.append(kvp("numConformers", static_cast<int64_t>(cpdb.num_conformers)));
 			})
 		);
