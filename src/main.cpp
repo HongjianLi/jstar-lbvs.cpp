@@ -465,6 +465,9 @@ int main(int argc, char* argv[])
 
 				// Calculate canonical SMILES, molecular formula and descriptors. This can be done either by calculating them on the fly using the molecule with hydrogens removed, or by reading the precalculated values from *.u16 and *.f32 files.
 				hitMol.setProp<unsigned int>("query", query_number);
+				hitMol.setProp<double>("usrScore", usr1 ? u0score : u1score);
+				hitMol.setProp<double>("usrcatScore", usr1 ? u1score : u0score);
+				hitMol.setProp<double>("tanimotoScore", ts);
 				hitMol.setProp<string>("database", cpdb.name);
 				hitMol.setProp<string>("canonicalSMILES", MolToSmiles(hitMolNoH)); // Default parameters are: const ROMol& mol, bool doIsomericSmiles = true, bool doKekule = false, int rootedAtAtom = -1, bool canonical = true, bool allBondsExplicit = false, bool allHsExplicit = false, bool doRandom = false. https://www.rdkit.org/docs/cppapi/namespaceRDKit.html#a3636828cca83a233d7816f3652a9eb6b
 				hitMol.setProp<string>("molFormula", calcMolFormula(hitMolNoH)); // calcMolFormula() will output hydrogens even when the input molecule has called removedHs(). As a result, calcMolFormula(hitMolNoH) == calcMolFormula(hitMol)
@@ -476,9 +479,6 @@ int main(int argc, char* argv[])
 				hitMol.setProp<double>("exactMW", cpdb.xmwt[k]);
 				hitMol.setProp<double>("tPSA", cpdb.tpsa[k]);
 				hitMol.setProp<double>("clogP", cpdb.clgp[k]);
-				hitMol.setProp<double>("usrScore", usr1 ? u0score : u1score);
-				hitMol.setProp<double>("usrcatScore", usr1 ? u1score : u0score);
-				hitMol.setProp<double>("tanimotoScore", ts);
 
 				// Find heavy atoms.
 				vector<vector<pair<int, int>>> matchVect;
