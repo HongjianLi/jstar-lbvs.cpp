@@ -256,8 +256,8 @@ int main(int argc, char* argv[])
 		// Process each of the query compounds sequentially.
 		ostringstream hit_mol_sdf_oss;
 		SDWriter hit_mol_sdf_writer(&hit_mol_sdf_oss, false); // std::ostream*, bool takeOwnership
-		const auto num_queries = qry_mol_sup.length();
-		for (unsigned int query_number = 0; query_number < num_queries; ++query_number)
+		const auto num_qry_mols = qry_mol_sup.length();
+		for (unsigned int query_number = 0; query_number < num_qry_mols; ++query_number)
 		{
 			cout << local_time() << "Parsing query compound " << query_number << endl;
 			const unique_ptr<ROMol> qry_mol_ptr(qry_mol_sup.next()); // Calling next() may print "ERROR: Could not sanitize compound on line XXXX" to stderr.
@@ -524,9 +524,10 @@ int main(int argc, char* argv[])
 			kvp("$set", [=](bsoncxx::builder::basic::sub_document set_subdoc) {
 				set_subdoc.append(kvp("hitMolSdf", hit_mol_sdf));
 				set_subdoc.append(kvp("endDate", bsoncxx::types::b_date(endDate)));
-				set_subdoc.append(kvp("numQueries", static_cast<int32_t>(num_queries)));
-				set_subdoc.append(kvp("numConformers", static_cast<int64_t>(cpdb.num_conformers)));
-			})
+				set_subdoc.append(kvp("numQryMol", static_cast<int32_t>(num_qry_mols)));
+				set_subdoc.append(kvp("numLibMol", static_cast<int32_t>(cpdb.num_compounds)));
+				set_subdoc.append(kvp("numLibCnf", static_cast<int32_t>(cpdb.num_conformers)));
+				})
 		);
 		// http://mongocxx.org/api/current/classmongocxx_1_1collection.html#aece5216e5ae6fc3316c9da604f3b28f9
 		const auto compt_update = coll.update_one(bsoncxx::builder::basic::make_document(kvp("_id", _id)), compt_update_builder.extract(), options::update()); // stdx::optional<result::update>. options: write_concern
@@ -536,9 +537,9 @@ int main(int argc, char* argv[])
 
 		// Calculate runtime in seconds and screening speed in thousand conformers per second.
 		const auto runtime = (endDate - startDate).count() * 1e-9; // in seconds
-		const auto speed = cpdb.num_conformers * num_queries * 1e-3 / runtime;
+		const auto speed = cpdb.num_conformers * num_qry_mols * 1e-3 / runtime;
 		cout
-			<< local_time() << "Completed " << num_queries << " " << (num_queries == 1 ? "query" : "queries") << " in " << setprecision(3) << runtime << " seconds" << endl
+			<< local_time() << "Completed " << num_qry_mols << " " << (num_qry_mols == 1 ? "query" : "queries") << " in " << setprecision(3) << runtime << " seconds" << endl
 			<< local_time() << "Screening speed was " << setprecision(2) << speed << " K conformers per second" << endl
 		;
 	}
