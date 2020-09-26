@@ -519,14 +519,16 @@ int main(int argc, char* argv[])
 		cout << local_time() << "Setting end date" << endl;
 		const auto endDate = system_clock::now();
 		const auto hit_mol_sdf = hit_mol_sdf_oss.str();
+		const int32_t cpdb_num_compounds = cpdb.num_compounds; // Create an int32_t intance, to be passed to kvp(). Caution: static_cast<int32_t>(cpdb.num_compounds) would cause the program to exit.
+		const int32_t cpdb_num_conformers = cpdb.num_conformers;
 		bsoncxx::builder::basic::document compt_update_builder;
 		compt_update_builder.append(
 			kvp("$set", [=](bsoncxx::builder::basic::sub_document set_subdoc) {
 				set_subdoc.append(kvp("hitMolSdf", hit_mol_sdf));
 				set_subdoc.append(kvp("endDate", bsoncxx::types::b_date(endDate)));
 				set_subdoc.append(kvp("numQryMol", static_cast<int32_t>(num_qry_mols)));
-				set_subdoc.append(kvp("numLibMol", static_cast<int32_t>(cpdb.num_compounds)));
-				set_subdoc.append(kvp("numLibCnf", static_cast<int32_t>(cpdb.num_conformers)));
+				set_subdoc.append(kvp("numLibMol", cpdb_num_compounds));
+				set_subdoc.append(kvp("numLibCnf", cpdb_num_conformers));
 				})
 		);
 		// http://mongocxx.org/api/current/classmongocxx_1_1collection.html#aece5216e5ae6fc3316c9da604f3b28f9
