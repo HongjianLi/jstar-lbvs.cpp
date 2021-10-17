@@ -255,9 +255,9 @@ int main(int argc, char* argv[])
 
 		// Process each of the query compounds sequentially.
 		ostringstream hit_mol_sdf_oss;
-		SDWriter hit_mol_sdf_writer(&hit_mol_sdf_oss, false); // std::ostream*, bool takeOwnership
-		const auto num_qry_mols = qry_mol_sup.length();
-		for (unsigned int query_number = 0; query_number < num_qry_mols; ++query_number)
+		const auto num_qry_mols = qry_mol_sup.length(); // num_qry_mols is the number of query molecules submitted by the user. These query molecules are not necessarily all processed, given the limitation of maximum 16MB MongoDB document size of the result.
+		unsigned int query_number = 0;
+		while (query_number < num_qry_mols)
 		{
 			cout << local_time() << "Parsing query compound " << query_number << endl;
 			const unique_ptr<ROMol> qry_mol_ptr(qry_mol_sup.next()); // Calling next() may print "ERROR: Could not sanitize compound on line XXXX" to stderr.
@@ -427,6 +427,8 @@ int main(int argc, char* argv[])
 			// 2) for (size_t l = 0; l < num_hits; ++l) { io.post([&,l](){ SDWriter hit_mol_sdf_writer(&hit_mol_sdf_oss_arr[l], false); }); cnt.increment(); }
 			// 3) cnt.wait(); ostringstream hit_mol_sdf_oss; for (size_t l = 0; l < num_hits; ++l) { hit_mol_sdf_oss << hit_mol_sdf_oss_arr[l]; } const auto hit_mol_sdf = hit_mol_sdf_oss.str();
 			cout << local_time() << "Writing hit molecules to a string stream" << endl;
+			ostringstream hit_mol_sdf_per_qry_oss;
+			SDWriter hit_mol_sdf_writer(&hit_mol_sdf_per_qry_oss, false); // std::ostream*, bool takeOwnership
 			for (size_t l = 0; l < num_hits; ++l)
 			{
 				// Obtain indexes to the hit compound and the hit conformer.
@@ -513,7 +515,23 @@ int main(int argc, char* argv[])
 				// Write the aligned hit conformer.
 				hit_mol_sdf_writer.write(hitMol);
 			}
+			cout << local_time() << "Wrote " << hit_mol_sdf_per_qry_oss.tellp() << " bytes of hit molecules to a string stream" << endl;
+
+			// If the size of the hitMolSdf field will not exceed 15MB after appending, then allow the appending. Reserve 1MB for the other fields, e.g. qryMolSdf.
+			if (hit_mol_sdf_oss.tellp() + hit_mol_sdf_per_qry_oss.tellp() < 15000000)
+			{
+				hit_mol_sdf_oss << hit_mol_sdf_per_qry_oss.str();
+				cout << local_time() << "Accumulated " << hit_mol_sdf_oss.tellp() << " bytes of hit molecules for the first " << ++query_number << " query molecules" << endl;
+			}
+			else
+			{
+				cout << local_time() << "Unable to accumulate " << hit_mol_sdf_per_qry_oss.tellp() << " bytes to the existing " << hit_mol_sdf_oss.tellp() << " bytes" << endl;
+				break;
+			}
 		}
+		const auto num_qry_mols_processed = query_number; // num_qry_mols_processed is the number of query molecules processed by the daemon.
+		assert(num_qry_mols_processed <= num_qry_mols);
+		cout << local_time() << "Processed " << num_qry_mols_processed << " out of " << num_qry_mols << " query molecules" << endl;
 
 		// Update job status.
 		const auto hit_mol_sdf = hit_mol_sdf_oss.str();
@@ -526,7 +544,7 @@ int main(int argc, char* argv[])
 			kvp("$set", [=](bsoncxx::builder::basic::sub_document set_subdoc) {
 				set_subdoc.append(kvp("hitMolSdf", hit_mol_sdf));
 				set_subdoc.append(kvp("endDate", bsoncxx::types::b_date(endDate)));
-				set_subdoc.append(kvp("numQryMol", static_cast<int32_t>(num_qry_mols)));
+				set_subdoc.append(kvp("numQryMol", static_cast<int32_t>(num_qry_mols_processed))); // numQryMol is the number of query molecules completed by the daemon.
 				set_subdoc.append(kvp("numLibMol", cpdb_num_compounds));
 				set_subdoc.append(kvp("numLibCnf", cpdb_num_conformers));
 				})
@@ -539,9 +557,9 @@ int main(int argc, char* argv[])
 
 		// Calculate runtime in seconds and screening speed in conformers per second.
 		const auto runtime = duration_cast<nanoseconds>(endDate - startDate).count() * 1e-9; // Convert nanoseconds to seconds.
-		const auto speed = cpdb.num_conformers * num_qry_mols / runtime;
+		const auto speed = cpdb.num_conformers * num_qry_mols_processed / runtime;
 		cout
-			<< local_time() << "Completed " << num_qry_mols << " " << (num_qry_mols == 1 ? "query" : "queries") << " in " << setprecision(3) << runtime << " seconds" << endl
+			<< local_time() << "Completed " << num_qry_mols_processed << " " << (num_qry_mols_processed == 1 ? "query" : "queries") << " in " << setprecision(3) << runtime << " seconds" << endl
 			<< local_time() << "Screening speed was " << setprecision(0) << speed << " conformers per second" << endl
 		;
 	}
