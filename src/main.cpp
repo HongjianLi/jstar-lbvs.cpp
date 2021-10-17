@@ -516,9 +516,9 @@ int main(int argc, char* argv[])
 		}
 
 		// Update job status.
-		cout << local_time() << "Setting end date" << endl;
-		const auto endDate = system_clock::now();
 		const auto hit_mol_sdf = hit_mol_sdf_oss.str();
+		cout << local_time() << "Writing " << hit_mol_sdf.size() << " bytes of hit molecules and setting end date" << endl;
+		const auto endDate = system_clock::now();
 		const int32_t cpdb_num_compounds = cpdb.num_compounds; // Create an int32_t intance, to be passed to kvp(). Caution: static_cast<int32_t>(cpdb.num_compounds) would cause the program to exit.
 		const int32_t cpdb_num_conformers = cpdb.num_conformers;
 		bsoncxx::builder::basic::document compt_update_builder;
