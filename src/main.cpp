@@ -122,7 +122,7 @@ int main(int argc, char* argv[])
 	const path cpdbs_path = argv[5];
 
 	// Initialize constants.
-	cout << local_time() << "Initializing" << endl;
+	cout << local_time_string() << "Initializing" << endl;
 	const size_t num_usrs = 2;
 	const array<string, 2> usr_names{{ "USR", "USRCAT" }};
 	constexpr array<size_t, num_usrs> qn{{ 12, 60 }};
@@ -163,7 +163,7 @@ int main(int argc, char* argv[])
 	}
 
 	// Connect to mongodb and authenticate user.
-	cout << local_time() << "Connecting to " << host << ':' << port << " and authenticating " << user << endl;
+	cout << local_time_string() << "Connecting to " << host << ':' << port << " and authenticating " << user << endl;
 	const instance inst; // The constructor and destructor initialize and shut down the driver. http://mongocxx.org/api/current/classmongocxx_1_1instance.html
 	const uri uri("mongodb://" + host + ":" + port + "/?minPoolSize=0&maxPoolSize=2"); // When connecting to a replica set, it is much more efficient to use a pool as opposed to manually constructing client objects. TODO: Create a credential that will authenticate properly regardless of server version, use a connection string with the user and password directly in the URI and with a parameter specifying the database to authenticate from: "mongodb://user:pwd@localhost:27017/?authSource=jstar"
 	pool pool(uri);
@@ -179,18 +179,18 @@ int main(int argc, char* argv[])
 
 	// Initialize an io service pool and create worker threads for later use.
 	const size_t num_threads = thread::hardware_concurrency();
-	cout << local_time() << "Creating an io service pool of " << num_threads << " worker threads" << endl;
+	cout << local_time_string() << "Creating an io service pool of " << num_threads << " worker threads" << endl;
 	io_service_pool io(num_threads);
 	safe_counter<size_t> cnt;
 
 	// Enter event loop.
-	cout << local_time() << "Entering event loop" << endl;
+	cout << local_time_string() << "Entering event loop" << endl;
 	cout.setf(ios::fixed, ios::floatfield);
 	bool sleeping = false;
 	while (true)
 	{
 		// Fetch an incompleted job in a first-come-first-served manner.
-		if (!sleeping) cout << local_time() << "Fetching an incompleted job" << endl;
+		if (!sleeping) cout << local_time_string() << "Fetching an incompleted job" << endl;
 		const auto startDate = system_clock::now();
 		bsoncxx::builder::basic::document jobid_update_builder;
 		jobid_update_builder.append(
@@ -204,7 +204,7 @@ int main(int argc, char* argv[])
 		if (!jobid_document)
 		{
 			// No incompleted jobs. Sleep for a while.
-			if (!sleeping) cout << local_time() << "Sleeping" << endl;
+			if (!sleeping) cout << local_time_string() << "Sleeping" << endl;
 			sleeping = true;
 			this_thread::sleep_for(std::chrono::seconds(2));
 			continue;
@@ -214,7 +214,7 @@ int main(int argc, char* argv[])
 
 		// Obtain job properties.
 		const auto _id = jobid_view["_id"].get_oid().value;
-		cout << local_time() << "Executing job " << _id.to_string() << endl;
+		cout << local_time_string() << "Executing job " << _id.to_string() << endl;
 		const auto qry_mol_sdf = jobid_view["qryMolSdf"].get_utf8().value; // get_utf8().value returns an instance of std::string_view.
 		const auto cpdb_name = jobid_view["database"].get_utf8().value;
 		const auto score = jobid_view["score"].get_utf8().value;
@@ -225,13 +225,13 @@ int main(int argc, char* argv[])
 		const auto qnu1 = qn[usr1];
 
 		// Obtain a constant reference to the selected database.
-		cout << local_time() << "Finding the selected compound database" << endl;
+		cout << local_time_string() << "Finding the selected compound database" << endl;
 		size_t cpdb_index = 0;
 		while (cpdb_name.compare(databases[cpdb_index].name) != 0) ++cpdb_index;
 		const auto& cpdb = databases[cpdb_index];
 
 		// Read the user-supplied SDF file.
-		cout << local_time() << "Reading the query file" << endl;
+		cout << local_time_string() << "Reading the query file" << endl;
 		istringstream qry_mol_sdf_iss(qry_mol_sdf.data()); // data() may return a pointer to a buffer that is not null-terminated. Therefore it is typically a mistake to pass data() to a routine that takes just a const CharT* and expects a null-terminated string.
 		SDMolSupplier qry_mol_sup(&qry_mol_sdf_iss, false, true, false, true); // takeOwnership, sanitize, removeHs, strictParsing. Note: setting removeHs=true (which is the default setting) will lead to fewer hydrogen bond acceptors being matched.
 
@@ -248,7 +248,7 @@ int main(int argc, char* argv[])
 		const auto num_chunks = 1 + (cpdb.num_compounds - 1) / chunk_size;
 		assert(chunk_size * num_chunks >= cpdb.num_compounds);
 		assert(chunk_size >= num_hits);
-		cout << local_time() << "Using " << num_chunks << " chunks and a chunk size of " << chunk_size << endl;
+		cout << local_time_string() << "Using " << num_chunks << " chunks and a chunk size of " << chunk_size << endl;
 		vector<size_t> scase(cpdb.num_compounds);
 		vector<size_t> zcase(num_hits * (num_chunks - 1) + min(num_hits, cpdb.num_compounds - chunk_size * (num_chunks - 1))); // The last chunk might have fewer than num_hits records.
 		ifstream conformers_sdf_ifs(cpdb.dpth / "conformers.sdf");
@@ -259,7 +259,7 @@ int main(int argc, char* argv[])
 		unsigned int query_number = 0;
 		while (query_number < num_qry_mols)
 		{
-			cout << local_time() << "Parsing query compound " << query_number << endl;
+			cout << local_time_string() << "Parsing query compound " << query_number << endl;
 			const unique_ptr<ROMol> qry_mol_ptr(qry_mol_sup.next()); // Calling next() may print "ERROR: Could not sanitize compound on line XXXX" to stderr.
 			auto& qryMol = *qry_mol_ptr;
 
@@ -267,14 +267,14 @@ int main(int argc, char* argv[])
 			const auto num_atoms = qryMol.getNumAtoms();
 			const auto num_heavy_atoms = qryMol.getNumHeavyAtoms();
 			assert(num_heavy_atoms);
-			cout << local_time() << "Found " << num_atoms << " atoms and " << num_heavy_atoms << " heavy atoms" << endl;
+			cout << local_time_string() << "Found " << num_atoms << " atoms and " << num_heavy_atoms << " heavy atoms" << endl;
 
 			// Calculate Morgan fingerprint.
-			cout << local_time() << "Calculating Morgan fingerprint" << endl;
+			cout << local_time_string() << "Calculating Morgan fingerprint" << endl;
 			const unique_ptr<SparseIntVect<uint32_t>> qryFp(getFingerprint(qryMol, 2));
 
 			// Classify atoms to pharmacophoric subsets.
-			cout << local_time() << "Classifying atoms into subsets" << endl;
+			cout << local_time_string() << "Classifying atoms into subsets" << endl;
 			for (size_t k = 0; k < num_subsets; ++k)
 			{
 				vector<vector<pair<int, int>>> matchVect;
@@ -286,13 +286,13 @@ int main(int argc, char* argv[])
 				{
 					subset[i] = matchVect[i].front().second;
 				}
-				cout << local_time() << "Found " << num_matches << " atoms for subset " << k << endl;
+				cout << local_time_string() << "Found " << num_matches << " atoms for subset " << k << endl;
 			}
 			const auto& subset0 = subsets.front();
 			assert(subset0.size() == num_heavy_atoms);
 
 			// Calculate the four reference points.
-			cout << local_time() << "Calculating " << num_refPoints << " reference points" << endl;
+			cout << local_time_string() << "Calculating " << num_refPoints << " reference points" << endl;
 			const auto qryRefPoints = calcRefPoints(qryMol, subset0);
 			const Point3DConstPtrVect qryRefPointv
 			{{
@@ -303,7 +303,7 @@ int main(int argc, char* argv[])
 			}};
 
 			// Precalculate the distances of heavy atoms to the reference points, given that subsets[1 to 4] are subsets of subsets[0].
-			cout << local_time() << "Calculating " << num_heavy_atoms * num_refPoints << " pairwise distances" << endl;
+			cout << local_time_string() << "Calculating " << num_heavy_atoms * num_refPoints << " pairwise distances" << endl;
 			const auto& qryCnf = qryMol.getConformer();
 			for (size_t k = 0; k < num_refPoints; ++k)
 			{
@@ -317,7 +317,7 @@ int main(int argc, char* argv[])
 			}
 
 			// Loop over pharmacophoric subsets and reference points.
-			cout << local_time() << "Calculating " << 3 * num_refPoints * num_subsets << " moments of USRCAT feature" << endl;
+			cout << local_time_string() << "Calculating " << 3 * num_refPoints * num_subsets << " moments of USRCAT feature" << endl;
 			size_t qo = 0;
 			for (const auto& subset : subsets)
 			{
@@ -374,7 +374,7 @@ int main(int argc, char* argv[])
 			assert(qo == qn.back());
 
 			// Compute USR and USRCAT scores.
-			cout << local_time() << "Screening " << cpdb.name << " and calculating " << cpdb.num_compounds << " " << usr_names[usr0] << " scores from " << cpdb.num_conformers << " conformers" << endl;
+			cout << local_time_string() << "Screening " << cpdb.name << " and calculating " << cpdb.num_compounds << " " << usr_names[usr0] << " scores from " << cpdb.num_conformers << " conformers" << endl;
 			scores.assign(scores.size(), numeric_limits<double>::max());
 			iota(scase.begin(), scase.end(), 0);
 			cnt.init(num_chunks);
@@ -418,7 +418,7 @@ int main(int argc, char* argv[])
 			cnt.wait();
 
 			// Sort the top hits from chunks.
-			cout << local_time() << "Sorting " << zcase.size() << " hits by " << usr_names[usr0] << " score" << endl;
+			cout << local_time_string() << "Sorting " << zcase.size() << " hits by " << usr_names[usr0] << " score" << endl;
 			sort(zcase.begin(), zcase.end(), compare);
 
 			// Write hit molecules to a string stream for output.
@@ -426,7 +426,7 @@ int main(int argc, char* argv[])
 			// 1) array<ostringstream, num_hits> hit_mol_sdf_oss_arr; cnt.init(num_hits);
 			// 2) for (size_t l = 0; l < num_hits; ++l) { io.post([&,l](){ SDWriter hit_mol_sdf_writer(&hit_mol_sdf_oss_arr[l], false); }); cnt.increment(); }
 			// 3) cnt.wait(); ostringstream hit_mol_sdf_oss; for (size_t l = 0; l < num_hits; ++l) { hit_mol_sdf_oss << hit_mol_sdf_oss_arr[l]; } const auto hit_mol_sdf = hit_mol_sdf_oss.str();
-			cout << local_time() << "Writing hit molecules to a string stream" << endl;
+			cout << local_time_string() << "Writing hit molecules to a string stream" << endl;
 			ostringstream hit_mol_sdf_per_qry_oss;
 			SDWriter hit_mol_sdf_writer(&hit_mol_sdf_per_qry_oss, false); // std::ostream*, bool takeOwnership
 			for (size_t l = 0; l < num_hits; ++l)
@@ -515,27 +515,27 @@ int main(int argc, char* argv[])
 				// Write the aligned hit conformer.
 				hit_mol_sdf_writer.write(hitMol);
 			}
-			cout << local_time() << "Wrote " << hit_mol_sdf_per_qry_oss.tellp() << " bytes of hit molecules to a string stream" << endl;
+			cout << local_time_string() << "Wrote " << hit_mol_sdf_per_qry_oss.tellp() << " bytes of hit molecules to a string stream" << endl;
 
 			// If the size of the hitMolSdf field will not exceed 15MB after appending, then allow the appending. Reserve 1MB for the other fields, e.g. qryMolSdf.
 			if (hit_mol_sdf_oss.tellp() + hit_mol_sdf_per_qry_oss.tellp() < 15000000)
 			{
 				hit_mol_sdf_oss << hit_mol_sdf_per_qry_oss.str();
-				cout << local_time() << "Accumulated " << hit_mol_sdf_oss.tellp() << " bytes of hit molecules for the first " << ++query_number << " query molecules" << endl;
+				cout << local_time_string() << "Accumulated " << hit_mol_sdf_oss.tellp() << " bytes of hit molecules for the first " << ++query_number << " query molecules" << endl;
 			}
 			else
 			{
-				cout << local_time() << "Unable to accumulate " << hit_mol_sdf_per_qry_oss.tellp() << " bytes to the existing " << hit_mol_sdf_oss.tellp() << " bytes" << endl;
+				cout << local_time_string() << "Unable to accumulate " << hit_mol_sdf_per_qry_oss.tellp() << " bytes to the existing " << hit_mol_sdf_oss.tellp() << " bytes" << endl;
 				break;
 			}
 		}
 		const auto num_qry_mols_processed = query_number; // num_qry_mols_processed is the number of query molecules processed by the daemon.
 		assert(num_qry_mols_processed <= num_qry_mols);
-		cout << local_time() << "Processed " << num_qry_mols_processed << " out of " << num_qry_mols << " query molecules" << endl;
+		cout << local_time_string() << "Processed " << num_qry_mols_processed << " out of " << num_qry_mols << " query molecules" << endl;
 
 		// Update job status.
 		const auto hit_mol_sdf = hit_mol_sdf_oss.str();
-		cout << local_time() << "Writing " << hit_mol_sdf.size() << " bytes of hit molecules and setting end date" << endl;
+		cout << local_time_string() << "Writing " << hit_mol_sdf.size() << " bytes of hit molecules and setting end date" << endl;
 		const auto endDate = system_clock::now();
 		const int32_t cpdb_num_compounds = cpdb.num_compounds; // Create an int32_t intance, to be passed to kvp(). Caution: static_cast<int32_t>(cpdb.num_compounds) would cause the program to exit.
 		const int32_t cpdb_num_conformers = cpdb.num_conformers;
@@ -559,8 +559,8 @@ int main(int argc, char* argv[])
 		const auto runtime = duration_cast<nanoseconds>(endDate - startDate).count() * 1e-9; // Convert nanoseconds to seconds.
 		const auto speed = cpdb.num_conformers * num_qry_mols_processed / runtime;
 		cout
-			<< local_time() << "Completed " << num_qry_mols_processed << " " << (num_qry_mols_processed == 1 ? "query" : "queries") << " in " << setprecision(3) << runtime << " seconds" << endl
-			<< local_time() << "Screening speed was " << setprecision(0) << speed << " conformers per second" << endl
+			<< local_time_string() << "Completed " << num_qry_mols_processed << " " << (num_qry_mols_processed == 1 ? "query" : "queries") << " in " << setprecision(3) << runtime << " seconds" << endl
+			<< local_time_string() << "Screening speed was " << setprecision(0) << speed << " conformers per second" << endl
 		;
 	}
 }

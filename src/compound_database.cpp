@@ -6,7 +6,7 @@ compound_database::compound_database(const path dpth) : dpth(dpth)
 {
 	// Obtain database name.
 	name = dpth.filename().string();
-	cout << local_time() << "Reading " << name << endl;
+	cout << local_time_string() << "Reading " << name << endl;
 
 	// Read molecular descriptor files.
 	read_types<uint16_t>(dpth / "natm.u16", natm);
@@ -35,7 +35,7 @@ compound_database::compound_database(const path dpth) : dpth(dpth)
 	read_types<size_t>(dpth / "conformers.sdf.ftr", conformers_sdf_ftr);
 	assert(conformers_sdf_ftr.size() == num_conformers);
 
-	cout << local_time() << "Found " << num_compounds << " compounds and " << num_conformers << " conformers" << endl;
+	cout << local_time_string() << "Found " << num_compounds << " compounds and " << num_conformers << " conformers" << endl;
 };
 
 string compound_database::read_conformer(const size_t index, ifstream& ifs) const
@@ -48,7 +48,7 @@ void compound_database::read_types(const path src, vector<T>& vec) // Sequential
 {
 	ifstream ifs(src, ios::binary | ios::ate);
 	const size_t num_bytes = ifs.tellg();
-	cout << local_time() << "Reading " << src.filename() << " of " << num_bytes << " bytes" << endl;
+	cout << local_time_string() << "Reading " << src.filename() << " of " << num_bytes << " bytes" << endl;
 	vec.resize(num_bytes / sizeof(T));
 	ifs.seekg(0);
 	ifs.read(reinterpret_cast<char*>(vec.data()), num_bytes);
