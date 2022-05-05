@@ -1,5 +1,5 @@
 # jstar-lbvs
-[jstar]-featured daemon for ligand-based virtual screening (LBVS).
+[jstar]'s daemon for ligand-based virtual screening (LBVS). Written in C++.
 
 ## Architecture
 ![jstar architecture](https://github.com/HongjianLi/jstar/blob/master/public/architecture.png)
