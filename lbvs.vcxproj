@@ -45,6 +45,7 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(BOOST_ROOT)\include;$(RDKIT_ROOT)\include\rdkit;$(MONGO_CXX_DRIVER_ROOT)\include\bsoncxx\v_noabi;$(MONGO_CXX_DRIVER_ROOT)\include\mongocxx\v_noabi</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
