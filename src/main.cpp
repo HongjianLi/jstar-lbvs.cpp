@@ -175,7 +175,7 @@ int main(int argc, char* argv[])
 	// Initialize variables.
 	array<vector<int>, num_subsets> subsets;
 	array<vector<double>, num_refPoints> dista;
-	alignas(32) array<double, 60> q;
+	alignas(32) array<double, 60> q; // The usrcat feature vector of the query molecule.
 
 	// Initialize an io service pool and create worker threads for later use.
 	const size_t num_threads = thread::hardware_concurrency();
