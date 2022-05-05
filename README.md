@@ -23,5 +23,5 @@
 [jstar]: https://github.com/HongjianLi/jstar
 [MongoDB]: https://github.com/mongodb/mongo
 [MongoDB C++ Driver]: https://github.com/mongodb/mongo-cxx-driver
-[MIT License]: https://github.com/HongjianLi/jstar-lbvs/blob/master/LICENSE
+[MIT License]: https://github.com/HongjianLi/jstar-lbvs.cpp/blob/master/LICENSE
 [Jacky Lee]: https://github.com/HongjianLi
