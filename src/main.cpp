@@ -251,7 +251,7 @@ int main(int argc, char* argv[])
 		cout << local_time_string() << "Using " << num_chunks << " chunks and a chunk size of " << chunk_size << endl;
 		vector<size_t> scase(cpdb.num_compounds);
 		vector<size_t> zcase(num_hits * (num_chunks - 1) + min(num_hits, cpdb.num_compounds - chunk_size * (num_chunks - 1))); // The last chunk might have fewer than num_hits records.
-		ifstream conformers_sdf_ifs(cpdb.dpth / "conformers.sdf");
+		ifstream conformers_sdf_ifs(cpdb.dpth / "conformers.sdf"); // ifstream conformers_sdf_ifs could be encapsulated in the compound_database class. It is purposely separated to maintain cpdb being constant.
 
 		// Process each of the query compounds sequentially.
 		ostringstream hit_mol_sdf_oss;
