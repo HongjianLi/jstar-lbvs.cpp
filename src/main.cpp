@@ -434,7 +434,6 @@ int main(int argc, char* argv[])
 				// Obtain indexes to the hit compound and the hit conformer.
 				const auto k = zcase[l];
 				const auto j = cnfids[k];
-				cout << l << ' ' << k << ' ' << j << endl;
 
 				// Calculate the secondary score of the saved conformer, which has the best primary score.
 				const auto& d = cpdb.usrcat[j];
