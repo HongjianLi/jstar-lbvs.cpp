@@ -110,16 +110,16 @@ int main(int argc, char* argv[])
 	// Check the required number of command line arguments.
 	if (argc != 6)
 	{
-		cout << "lbvs host port user pass dbs_path" << endl;
+		cout << "lbvs databases host port user pass" << endl;
 		return 0;
 	}
 
 	// Fetch command line arguments.
-	const string host = argv[1];
-	const string port = argv[2];
-	const string user = argv[3];
-	const string pass = argv[4];
-	const path cpdbs_path = argv[5];
+	const path cpdbs_path = argv[1];
+	const string host = argv[2];
+	const string port = argv[3];
+	const string user = argv[4];
+	const string pass = argv[5];
 
 	// Initialize constants.
 	cout << local_time_string() << "Initializing" << endl;
@@ -434,6 +434,7 @@ int main(int argc, char* argv[])
 				// Obtain indexes to the hit compound and the hit conformer.
 				const auto k = zcase[l];
 				const auto j = cnfids[k];
+				cout << l << ' ' << k << ' ' << j << endl;
 
 				// Calculate the secondary score of the saved conformer, which has the best primary score.
 				const auto& d = cpdb.usrcat[j];
