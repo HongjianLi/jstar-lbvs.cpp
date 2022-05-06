@@ -32,7 +32,7 @@ compound_database::compound_database(const path dpth) : dpth(dpth)
 	assert(num_conformers == num_compounds << 2);
 
 	// Read conformers.sdf footer file.
-	read_types<size_t>(dpth / "conformers.sdf.ftr", conformers_sdf_ftr);
+	read_types<size_t>(dpth / "conformers.sdf.ftr.u64", conformers_sdf_ftr);
 	assert(conformers_sdf_ftr.size() == num_conformers);
 
 	cout << local_time_string() << "Found " << num_compounds << " compounds and " << num_conformers << " conformers" << endl;
