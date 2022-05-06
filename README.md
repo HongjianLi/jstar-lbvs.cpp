@@ -3,6 +3,9 @@
 
 A JavaScript implementation is available at https://github.com/HongjianLi/jstar-lbvs.js
 
+## Usage
+    bin/lbvs ../jstar/databases localhost 27017 jstard password
+
 ## Architecture
 ![jstar architecture](https://github.com/HongjianLi/jstar/blob/master/public/architecture.png)
 
