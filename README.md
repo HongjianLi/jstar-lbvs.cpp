@@ -14,6 +14,8 @@ A JavaScript implementation is available at https://github.com/HongjianLi/jstar-
 * [MongoDB]
 ### Daemon
 * [MongoDB C++ Driver]
+* [rdkit]
+* [boost]
 
 ## License
 [MIT License]
@@ -28,5 +30,7 @@ A JavaScript implementation is available at https://github.com/HongjianLi/jstar-
 [jstar]: https://github.com/HongjianLi/jstar
 [MongoDB]: https://github.com/mongodb/mongo
 [MongoDB C++ Driver]: https://github.com/mongodb/mongo-cxx-driver
+[rdkit]: https://github.com/rdkit/rdkit
+[boost]: https://github.com/boostorg/boost
 [MIT License]: https://github.com/HongjianLi/jstar-lbvs.cpp/blob/master/LICENSE
 [Jacky Lee]: https://github.com/HongjianLi
