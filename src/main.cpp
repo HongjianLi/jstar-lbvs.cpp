@@ -195,6 +195,7 @@ int main(int argc, char* argv[])
 		bsoncxx::builder::basic::document jobid_update_builder;
 		jobid_update_builder.append(
 			kvp("$set", [=](bsoncxx::builder::basic::sub_document set_subdoc) {
+				set_subdoc.append(kvp("daemon", "cpp"));
 				set_subdoc.append(kvp("startDate", bsoncxx::types::b_date(startDate)));
 			})
 		);
@@ -547,7 +548,7 @@ int main(int argc, char* argv[])
 				set_subdoc.append(kvp("numQryMol", static_cast<int32_t>(num_qry_mols_processed))); // numQryMol is the number of query molecules completed by the daemon.
 				set_subdoc.append(kvp("numLibMol", cpdb_num_compounds));
 				set_subdoc.append(kvp("numLibCnf", cpdb_num_conformers));
-				})
+			})
 		);
 		// http://mongocxx.org/api/current/classmongocxx_1_1collection.html#aece5216e5ae6fc3316c9da604f3b28f9
 		const auto compt_update = coll.update_one(bsoncxx::builder::basic::make_document(kvp("_id", _id)), compt_update_builder.extract(), options::update()); // stdx::optional<result::update>. options: write_concern
