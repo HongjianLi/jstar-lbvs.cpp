@@ -165,7 +165,7 @@ int main(int argc, char* argv[])
 	// Connect to mongodb and authenticate user.
 	cout << local_time_string() << "Connecting to " << host << ':' << port << " and authenticating " << user << endl;
 	const instance inst; // The constructor and destructor initialize and shut down the driver. http://mongocxx.org/api/current/classmongocxx_1_1instance.html
-	const uri uri("mongodb://" + host + ":" + port + "/?minPoolSize=0&maxPoolSize=2"); // When connecting to a replica set, it is much more efficient to use a pool as opposed to manually constructing client objects. TODO: Create a credential that will authenticate properly regardless of server version, use a connection string with the user and password directly in the URI and with a parameter specifying the database to authenticate from: "mongodb://user:pass@localhost:27017/?authSource=jstar"
+	const uri uri("mongodb://" + user + ":" + pass + "@" + host + ":" + port + "/?authSource=jstar&minPoolSize=0&maxPoolSize=2"); // When connecting to a replica set, it is much more efficient to use a pool as opposed to manually constructing client objects. TODO: Create a credential that will authenticate properly regardless of server version, use a connection string with the user and password directly in the URI and with a parameter specifying the database to authenticate from: "mongodb://user:pass@localhost:27017/?authSource=jstar"
 	pool pool(uri);
 	const auto client = pool.acquire(); // Return value of acquire() is an instance of entry. An entry is a handle on a client object acquired via the pool.
 	auto coll = client->database("jstar").collection("lbvs");
